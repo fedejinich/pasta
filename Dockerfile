@@ -1,39 +1,31 @@
 FROM --platform=linux/amd64 ubuntu:22.04
 
-# set env variables
-ENV NTL_VERSION="ntl-11.4.3"
-ENV M4RI_VERSION="release-20200125"
-
 # install base dependencies
 RUN apt-get -y update && apt-get -y install build-essential libssl-dev autoconf libtool git libgmp3-dev cmake wget
 
-# install ntl
-RUN mkdir ntl_temp && \
-  cd ntl_temp && \
-  wget https://www.shoup.net/ntl/$NTL_VERSION.tar.gz  && \ 
-  tar xf $NTL_VERSION.tar.gz && \
-  rm $NTL_VERSION.tar.gz  && \
-  cd $NTL_VERSION/src  && \
-  ./configure SHARED=on NTL_GMP_LIP=on NTL_THREADS=on NTL_THREAD_BOOST=on NTL_EXCEPTIONS=on  && \
-  make -j4 && \
-  make install DESTDIR=$(pwd)/../../NTL && \
-  cd ../../..
+# set env variables
+ENV M4RI_VERSION="release-20200125"
+ENV M4RI_PREFIX="/m4ri_temp/m4ri-${M4RI_VERSION}/installed"
+ENV M4RI_INCLUDE_DIR="${M4RI_PREFIX}/include"
+ENV M4RI_LIB="${M4RI_PREFIX}/lib/libm4ri.so"
 
 # install m4ri
 RUN mkdir m4ri_temp && \
   cd m4ri_temp && \
-  wget https://github.com/malb/m4ri/archive/refs/tags/M4RI_VERSION.tar.gz && \
+  wget https://github.com/malb/m4ri/archive/refs/tags/$M4RI_VERSION.tar.gz && \
+  tar xf $M4RI_VERSION.tar.gz && \
+  cd m4ri-${M4RI_VERSION} && \
   autoreconf --install && \
   rm -rf installed && \
   mkdir installed && \
   ./configure --prefix=`pwd`/installed && \
   make -j4 && \
   make install && \
-  cd ../..
+  cd ../../..
 
 # copy content
-COPY . /fhe
-WORKDIR /fhe
+COPY . /pasta
+WORKDIR /pasta
 
 # build pasta
 RUN mkdir build && \
