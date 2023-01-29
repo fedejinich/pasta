@@ -47,7 +47,6 @@ else()
 endif()
 
 add_subdirectory(util)
-#add_subdirectory(thirdparty)
 
 # set(M4RI_PREFIX "${CMAKE_SOURCE_DIR}/thirdparty/m4ri/installed")
 # set(M4RI_INCLUDE_DIR "${M4RI_PREFIX}/include")
@@ -57,7 +56,5 @@ add_subdirectory(util)
 add_subdirectory(ciphers)
 
 # add tests
-if(BUILD_TESTS)
-    enable_testing()
-    add_subdirectory(tests)
-endif()
+enable_testing()
+add_subdirectory(tests)
