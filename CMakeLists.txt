@@ -47,7 +47,7 @@ else()
 endif()
 
 add_subdirectory(util)
-add_subdirectory(thirdparty)
+#add_subdirectory(thirdparty)
 
 set(M4RI_PREFIX "${CMAKE_SOURCE_DIR}/thirdparty/m4ri/installed")
 set(M4RI_INCLUDE_DIR "${M4RI_PREFIX}/include")
