@@ -4,7 +4,7 @@ This repository isolates the [PASTA](https://eprint.iacr.org/2021/731.pdf) symme
 
 This project is not optimized and it's not ready for proudction, use it at your own risk.
 
-## Build 
+## Build
 
 Requirements:
 

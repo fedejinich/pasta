@@ -7,41 +7,41 @@ namespace osuCrypto {
 
 namespace details {
 
-#ifdef OC_ENABLE_AESNI
-block keyGenHelper(block key, block keyRcon) {
-  keyRcon = _mm_shuffle_epi32(keyRcon, _MM_SHUFFLE(3, 3, 3, 3));
-  key = _mm_xor_si128(key, _mm_slli_si128(key, 4));
-  key = _mm_xor_si128(key, _mm_slli_si128(key, 4));
-  key = _mm_xor_si128(key, _mm_slli_si128(key, 4));
-  return _mm_xor_si128(key, keyRcon);
-};
-
-template <>
-void AES<NI>::setKey(const block& userKey) {
-  mRoundKey[0] = userKey;
-  mRoundKey[1] =
-      keyGenHelper(mRoundKey[0], _mm_aeskeygenassist_si128(mRoundKey[0], 0x01));
-  mRoundKey[2] =
-      keyGenHelper(mRoundKey[1], _mm_aeskeygenassist_si128(mRoundKey[1], 0x02));
-  mRoundKey[3] =
-      keyGenHelper(mRoundKey[2], _mm_aeskeygenassist_si128(mRoundKey[2], 0x04));
-  mRoundKey[4] =
-      keyGenHelper(mRoundKey[3], _mm_aeskeygenassist_si128(mRoundKey[3], 0x08));
-  mRoundKey[5] =
-      keyGenHelper(mRoundKey[4], _mm_aeskeygenassist_si128(mRoundKey[4], 0x10));
-  mRoundKey[6] =
-      keyGenHelper(mRoundKey[5], _mm_aeskeygenassist_si128(mRoundKey[5], 0x20));
-  mRoundKey[7] =
-      keyGenHelper(mRoundKey[6], _mm_aeskeygenassist_si128(mRoundKey[6], 0x40));
-  mRoundKey[8] =
-      keyGenHelper(mRoundKey[7], _mm_aeskeygenassist_si128(mRoundKey[7], 0x80));
-  mRoundKey[9] =
-      keyGenHelper(mRoundKey[8], _mm_aeskeygenassist_si128(mRoundKey[8], 0x1B));
-  mRoundKey[10] =
-      keyGenHelper(mRoundKey[9], _mm_aeskeygenassist_si128(mRoundKey[9], 0x36));
-}
-
-#endif
+//#ifdef OC_ENABLE_AESNI
+//block keyGenHelper(block key, block keyRcon) {
+//  keyRcon = _mm_shuffle_epi32(keyRcon, _MM_SHUFFLE(3, 3, 3, 3));
+//  key = _mm_xor_si128(key, _mm_slli_si128(key, 4));
+//  key = _mm_xor_si128(key, _mm_slli_si128(key, 4));
+//  key = _mm_xor_si128(key, _mm_slli_si128(key, 4));
+//  return _mm_xor_si128(key, keyRcon);
+//};
+//
+//template <>
+//void AES<NI>::setKey(const block& userKey) {
+//  mRoundKey[0] = userKey;
+//  mRoundKey[1] =
+//      keyGenHelper(mRoundKey[0], _mm_aeskeygenassist_si128(mRoundKey[0], 0x01));
+//  mRoundKey[2] =
+//      keyGenHelper(mRoundKey[1], _mm_aeskeygenassist_si128(mRoundKey[1], 0x02));
+//  mRoundKey[3] =
+//      keyGenHelper(mRoundKey[2], _mm_aeskeygenassist_si128(mRoundKey[2], 0x04));
+//  mRoundKey[4] =
+//      keyGenHelper(mRoundKey[3], _mm_aeskeygenassist_si128(mRoundKey[3], 0x08));
+//  mRoundKey[5] =
+//      keyGenHelper(mRoundKey[4], _mm_aeskeygenassist_si128(mRoundKey[4], 0x10));
+//  mRoundKey[6] =
+//      keyGenHelper(mRoundKey[5], _mm_aeskeygenassist_si128(mRoundKey[5], 0x20));
+//  mRoundKey[7] =
+//      keyGenHelper(mRoundKey[6], _mm_aeskeygenassist_si128(mRoundKey[6], 0x40));
+//  mRoundKey[8] =
+//      keyGenHelper(mRoundKey[7], _mm_aeskeygenassist_si128(mRoundKey[7], 0x80));
+//  mRoundKey[9] =
+//      keyGenHelper(mRoundKey[8], _mm_aeskeygenassist_si128(mRoundKey[8], 0x1B));
+//  mRoundKey[10] =
+//      keyGenHelper(mRoundKey[9], _mm_aeskeygenassist_si128(mRoundKey[9], 0x36));
+//}
+//
+//#endif
 
 #if defined(OC_ENABLE_PORTABLE_AES)
 // The lookup-tables are marked const so they can be placed in read-only storage
@@ -739,55 +739,55 @@ void AES<type>::ecbEncCounterMode(block baseIdx, uint64_t blockLength,
   }
 }
 
-#ifdef OC_ENABLE_AESNI
-template <>
-block AESDec<NI>::roundDec(block state, const block& roundKey) {
-  return _mm_aesdec_si128(state, roundKey);
-}
-
-template <>
-block AESDec<NI>::finalDec(block state, const block& roundKey) {
-  return _mm_aesdeclast_si128(state, roundKey);
-}
-
-template <>
-void AESDec<NI>::setKey(const block& userKey) {
-  const block& v0 = userKey;
-  const block v1 =
-      details::keyGenHelper(v0, _mm_aeskeygenassist_si128(v0, 0x01));
-  const block v2 =
-      details::keyGenHelper(v1, _mm_aeskeygenassist_si128(v1, 0x02));
-  const block v3 =
-      details::keyGenHelper(v2, _mm_aeskeygenassist_si128(v2, 0x04));
-  const block v4 =
-      details::keyGenHelper(v3, _mm_aeskeygenassist_si128(v3, 0x08));
-  const block v5 =
-      details::keyGenHelper(v4, _mm_aeskeygenassist_si128(v4, 0x10));
-  const block v6 =
-      details::keyGenHelper(v5, _mm_aeskeygenassist_si128(v5, 0x20));
-  const block v7 =
-      details::keyGenHelper(v6, _mm_aeskeygenassist_si128(v6, 0x40));
-  const block v8 =
-      details::keyGenHelper(v7, _mm_aeskeygenassist_si128(v7, 0x80));
-  const block v9 =
-      details::keyGenHelper(v8, _mm_aeskeygenassist_si128(v8, 0x1B));
-  const block v10 =
-      details::keyGenHelper(v9, _mm_aeskeygenassist_si128(v9, 0x36));
-
-  _mm_storeu_si128(&mRoundKey[0].m128i(), v10);
-  _mm_storeu_si128(&mRoundKey[1].m128i(), _mm_aesimc_si128(v9));
-  _mm_storeu_si128(&mRoundKey[2].m128i(), _mm_aesimc_si128(v8));
-  _mm_storeu_si128(&mRoundKey[3].m128i(), _mm_aesimc_si128(v7));
-  _mm_storeu_si128(&mRoundKey[4].m128i(), _mm_aesimc_si128(v6));
-  _mm_storeu_si128(&mRoundKey[5].m128i(), _mm_aesimc_si128(v5));
-  _mm_storeu_si128(&mRoundKey[6].m128i(), _mm_aesimc_si128(v4));
-  _mm_storeu_si128(&mRoundKey[7].m128i(), _mm_aesimc_si128(v3));
-  _mm_storeu_si128(&mRoundKey[8].m128i(), _mm_aesimc_si128(v2));
-  _mm_storeu_si128(&mRoundKey[9].m128i(), _mm_aesimc_si128(v1));
-  _mm_storeu_si128(&mRoundKey[10].m128i(), v0);
-}
-
-#endif
+//#ifdef OC_ENABLE_AESNI
+//template <>
+//block AESDec<NI>::roundDec(block state, const block& roundKey) {
+//  return _mm_aesdec_si128(state, roundKey);
+//}
+//
+//template <>
+//block AESDec<NI>::finalDec(block state, const block& roundKey) {
+//  return _mm_aesdeclast_si128(state, roundKey);
+//}
+//
+//template <>
+//void AESDec<NI>::setKey(const block& userKey) {
+//  const block& v0 = userKey;
+//  const block v1 =
+//      details::keyGenHelper(v0, _mm_aeskeygenassist_si128(v0, 0x01));
+//  const block v2 =
+//      details::keyGenHelper(v1, _mm_aeskeygenassist_si128(v1, 0x02));
+//  const block v3 =
+//      details::keyGenHelper(v2, _mm_aeskeygenassist_si128(v2, 0x04));
+//  const block v4 =
+//      details::keyGenHelper(v3, _mm_aeskeygenassist_si128(v3, 0x08));
+//  const block v5 =
+//      details::keyGenHelper(v4, _mm_aeskeygenassist_si128(v4, 0x10));
+//  const block v6 =
+//      details::keyGenHelper(v5, _mm_aeskeygenassist_si128(v5, 0x20));
+//  const block v7 =
+//      details::keyGenHelper(v6, _mm_aeskeygenassist_si128(v6, 0x40));
+//  const block v8 =
+//      details::keyGenHelper(v7, _mm_aeskeygenassist_si128(v7, 0x80));
+//  const block v9 =
+//      details::keyGenHelper(v8, _mm_aeskeygenassist_si128(v8, 0x1B));
+//  const block v10 =
+//      details::keyGenHelper(v9, _mm_aeskeygenassist_si128(v9, 0x36));
+//
+//  _mm_storeu_si128(&mRoundKey[0].m128i(), v10);
+//  _mm_storeu_si128(&mRoundKey[1].m128i(), _mm_aesimc_si128(v9));
+//  _mm_storeu_si128(&mRoundKey[2].m128i(), _mm_aesimc_si128(v8));
+//  _mm_storeu_si128(&mRoundKey[3].m128i(), _mm_aesimc_si128(v7));
+//  _mm_storeu_si128(&mRoundKey[4].m128i(), _mm_aesimc_si128(v6));
+//  _mm_storeu_si128(&mRoundKey[5].m128i(), _mm_aesimc_si128(v5));
+//  _mm_storeu_si128(&mRoundKey[6].m128i(), _mm_aesimc_si128(v4));
+//  _mm_storeu_si128(&mRoundKey[7].m128i(), _mm_aesimc_si128(v3));
+//  _mm_storeu_si128(&mRoundKey[8].m128i(), _mm_aesimc_si128(v2));
+//  _mm_storeu_si128(&mRoundKey[9].m128i(), _mm_aesimc_si128(v1));
+//  _mm_storeu_si128(&mRoundKey[10].m128i(), v0);
+//}
+//
+//#endif
 
 #if defined(OC_ENABLE_PORTABLE_AES)
 

@@ -4,41 +4,42 @@
 #include <cstdint>
 #include <iostream>
 
-#ifdef OC_ENABLE_SSE2
-#include <emmintrin.h>
-#include <smmintrin.h>
-#else
-#ifdef OC_ENABLE_AESNI
-#include <wmmintrin.h>
-#endif
-#endif
+//#ifdef OC_ENABLE_SSE2
+//#include <emmintrin.h>
+//#include <smmintrin.h>
+//#include <arm_neon.h>
+//#else
+//#ifdef OC_ENABLE_AESNI
+//#include <wmmintrin.h>
+//#endif
+//#endif
 
 namespace osuCrypto {
 struct alignas(16) block {
-#if defined(OC_ENABLE_SSE2) || defined(OC_ENABLE_AESNI)
-  __m128i mData;
-#else
+//#if defined(OC_ENABLE_SSE2) || defined(OC_ENABLE_AESNI)
+//  __m128i mData;
+//#else
   std::uint64_t mData[2];
-#endif
+//#endif
 
   block() = default;
   block(const block&) = default;
   block(uint64_t x1, uint64_t x0) {
-#ifdef OC_ENABLE_SSE2
-    mData = _mm_set_epi64x(x1, x0);
-#else
+//#ifdef OC_ENABLE_SSE2
+//    mData = _mm_set_epi64x(x1, x0);
+//#else
     as<uint64_t>()[0] = x0;
     as<uint64_t>()[1] = x1;
-#endif
+//#endif
   };
 
   block(char e15, char e14, char e13, char e12, char e11, char e10, char e9,
         char e8, char e7, char e6, char e5, char e4, char e3, char e2, char e1,
         char e0) {
-#ifdef OC_ENABLE_SSE2
-    mData = _mm_set_epi8(e15, e14, e13, e12, e11, e10, e9, e8, e7, e6, e5, e4,
-                         e3, e2, e1, e0);
-#else
+//#ifdef OC_ENABLE_SSE2
+//    mData = _mm_set_epi8(e15, e14, e13, e12, e11, e10, e9, e8, e7, e6, e5, e4,
+//                         e3, e2, e1, e0);
+//#else
     as<char>()[0] = e0;
     as<char>()[1] = e1;
     as<char>()[2] = e2;
@@ -55,18 +56,18 @@ struct alignas(16) block {
     as<char>()[13] = e13;
     as<char>()[14] = e14;
     as<char>()[15] = e15;
-#endif
+//#endif
   }
 
-#if defined(OC_ENABLE_SSE2) || defined(OC_ENABLE_AESNI)
-  block(const __m128i& x) { mData = x; }
-
-  operator const __m128i&() const { return mData; }
-  operator __m128i&() { return mData; }
-
-  __m128i& m128i() { return mData; }
-  const __m128i& m128i() const { return mData; }
-#endif
+//#if defined(OC_ENABLE_SSE2) || defined(OC_ENABLE_AESNI)
+//  block(const __m128i& x) { mData = x; }
+//
+//  operator const __m128i&() const { return mData; }
+//  operator __m128i&() { return mData; }
+//
+//  __m128i& m128i() { return mData; }
+//  const __m128i& m128i() const { return mData; }
+//#endif
   template <typename T>
   typename std::enable_if<std::is_pod<T>::value && (sizeof(T) <= 16) &&
                               (16 % sizeof(T) == 0),
@@ -90,17 +91,17 @@ struct alignas(16) block {
   }
 
   inline osuCrypto::block operator^(const osuCrypto::block& rhs) const {
-#ifdef OC_ENABLE_SSE2
-    return mm_xor_si128(rhs);
-#else
+//#ifdef OC_ENABLE_SSE2
+//    return mm_xor_si128(rhs);
+//#else
     return cc_xor_si128(rhs);
-#endif
+//#endif
   }
-#ifdef OC_ENABLE_SSE2
-  inline osuCrypto::block mm_xor_si128(const osuCrypto::block& rhs) const {
-    return _mm_xor_si128(*this, rhs);
-  }
-#endif
+//#ifdef OC_ENABLE_SSE2
+//  inline osuCrypto::block mm_xor_si128(const osuCrypto::block& rhs) const {
+//    return _mm_xor_si128(*this, rhs);
+//  }
+//#endif
   inline osuCrypto::block cc_xor_si128(const osuCrypto::block& rhs) const {
     auto ret = *this;
     ret.as<std::uint64_t>()[0] ^= rhs.as<std::uint64_t>()[0];
@@ -109,18 +110,18 @@ struct alignas(16) block {
   }
 
   inline osuCrypto::block operator&(const osuCrypto::block& rhs) const {
-#ifdef OC_ENABLE_SSE2
-    return mm_and_si128(rhs);
-#else
+//#ifdef OC_ENABLE_SSE2
+//    return mm_and_si128(rhs);
+//#else
     return cc_and_si128(rhs);
-#endif
+//#endif
   }
 
-#ifdef OC_ENABLE_SSE2
-  inline osuCrypto::block mm_and_si128(const osuCrypto::block& rhs) const {
-    return _mm_and_si128(*this, rhs);
-  }
-#endif
+//#ifdef OC_ENABLE_SSE2
+//  inline osuCrypto::block mm_and_si128(const osuCrypto::block& rhs) const {
+//    return _mm_and_si128(*this, rhs);
+//  }
+//#endif
   inline osuCrypto::block cc_and_si128(const osuCrypto::block& rhs) const {
     auto ret = *this;
     ret.as<std::uint64_t>()[0] &= rhs.as<std::uint64_t>()[0];
@@ -129,17 +130,17 @@ struct alignas(16) block {
   }
 
   inline osuCrypto::block operator|(const osuCrypto::block& rhs) const {
-#ifdef OC_ENABLE_SSE2
-    return mm_or_si128(rhs);
-#else
+//#ifdef OC_ENABLE_SSE2
+//    return mm_or_si128(rhs);
+//#else
     return cc_or_si128(rhs);
-#endif
+//#endif
   }
-#ifdef OC_ENABLE_SSE2
-  inline osuCrypto::block mm_or_si128(const osuCrypto::block& rhs) const {
-    return _mm_or_si128(*this, rhs);
-  }
-#endif
+//#ifdef OC_ENABLE_SSE2
+//  inline osuCrypto::block mm_or_si128(const osuCrypto::block& rhs) const {
+//    return _mm_or_si128(*this, rhs);
+//  }
+//#endif
   inline osuCrypto::block cc_or_si128(const osuCrypto::block& rhs) const {
     auto ret = *this;
     ret.as<std::uint64_t>()[0] |= rhs.as<std::uint64_t>()[0];
@@ -148,18 +149,18 @@ struct alignas(16) block {
   }
 
   inline osuCrypto::block operator<<(const std::uint8_t& rhs) const {
-#ifdef OC_ENABLE_SSE2
-    return mm_slli_epi64(rhs);
-#else
+//#ifdef OC_ENABLE_SSE2
+//    return mm_slli_epi64(rhs);
+//#else
     return cc_slli_epi64(rhs);
-#endif
+//#endif
   }
 
-#ifdef OC_ENABLE_SSE2
-  inline osuCrypto::block mm_slli_epi64(const std::uint8_t& rhs) const {
-    return _mm_slli_epi64(*this, rhs);
-  }
-#endif
+//#ifdef OC_ENABLE_SSE2
+//  inline osuCrypto::block mm_slli_epi64(const std::uint8_t& rhs) const {
+//    return _mm_slli_epi64(*this, rhs);
+//  }
+//#endif
   inline osuCrypto::block cc_slli_epi64(const std::uint8_t& rhs) const {
     auto ret = *this;
     ret.as<std::uint64_t>()[0] <<= rhs;
@@ -168,18 +169,18 @@ struct alignas(16) block {
   }
 
   inline block operator>>(const std::uint8_t& rhs) const {
-#ifdef OC_ENABLE_SSE2
-    return mm_srli_epi64(rhs);
-#else
+//#ifdef OC_ENABLE_SSE2
+//    return mm_srli_epi64(rhs);
+//#else
     return cc_srli_epi64(rhs);
-#endif
+//#endif
   }
 
-#ifdef OC_ENABLE_SSE2
-  inline block mm_srli_epi64(const std::uint8_t& rhs) const {
-    return _mm_srli_epi64(*this, rhs);
-  }
-#endif
+//#ifdef OC_ENABLE_SSE2
+//  inline block mm_srli_epi64(const std::uint8_t& rhs) const {
+//    return _mm_srli_epi64(*this, rhs);
+//  }
+//#endif
   inline block cc_srli_epi64(const std::uint8_t& rhs) const {
     auto ret = *this;
     ret.as<std::uint64_t>()[0] >>= rhs;
@@ -189,18 +190,18 @@ struct alignas(16) block {
   }
 
   inline osuCrypto::block operator+(const osuCrypto::block& rhs) const {
-#ifdef OC_ENABLE_SSE2
-    return mm_add_epi64(rhs);
-#else
+//#ifdef OC_ENABLE_SSE2
+//    return mm_add_epi64(rhs);
+//#else
     return cc_add_epi64(rhs);
-#endif
+//#endif
   }
 
-#ifdef OC_ENABLE_SSE2
-  inline block mm_add_epi64(const osuCrypto::block& rhs) const {
-    return _mm_add_epi64(*this, rhs);
-  }
-#endif
+//#ifdef OC_ENABLE_SSE2
+//  inline block mm_add_epi64(const osuCrypto::block& rhs) const {
+//    return _mm_add_epi64(*this, rhs);
+//  }
+//#endif
   inline block cc_add_epi64(const osuCrypto::block& rhs) const {
     auto ret = *this;
     ret.as<std::uint64_t>()[0] += rhs.as<std::uint64_t>()[0];
@@ -209,18 +210,18 @@ struct alignas(16) block {
   }
 
   inline osuCrypto::block operator-(const osuCrypto::block& rhs) const {
-#ifdef OC_ENABLE_SSE2
-    return mm_sub_epi64(rhs);
-#else
+//#ifdef OC_ENABLE_SSE2
+//    return mm_sub_epi64(rhs);
+//#else
     return cc_sub_epi64(rhs);
-#endif
+//#endif
   }
 
-#ifdef OC_ENABLE_SSE2
-  inline block mm_sub_epi64(const osuCrypto::block& rhs) const {
-    return _mm_sub_epi64(*this, rhs);
-  }
-#endif
+//#ifdef OC_ENABLE_SSE2
+//  inline block mm_sub_epi64(const osuCrypto::block& rhs) const {
+//    return _mm_sub_epi64(*this, rhs);
+//  }
+//#endif
   inline block cc_sub_epi64(const osuCrypto::block& rhs) const {
     auto ret = *this;
     ret.as<std::uint64_t>()[0] -= rhs.as<std::uint64_t>()[0];
@@ -229,13 +230,13 @@ struct alignas(16) block {
   }
 
   inline bool operator==(const osuCrypto::block& rhs) const {
-#ifdef OC_ENABLE_SSE2
-    auto neq = _mm_xor_si128(*this, rhs);
-    return _mm_test_all_zeros(neq, neq) != 0;
-#else
+//#ifdef OC_ENABLE_SSE2
+//    auto neq = _mm_xor_si128(*this, rhs);
+//    return _mm_test_all_zeros(neq, neq) != 0;
+//#else
     return as<std::uint64_t>()[0] == rhs.as<std::uint64_t>()[0] &&
            as<std::uint64_t>()[1] == rhs.as<std::uint64_t>()[1];
-#endif
+//#endif
   }
 
   inline bool operator!=(const osuCrypto::block& rhs) const {
@@ -243,18 +244,18 @@ struct alignas(16) block {
   }
 
   inline block srai_epi16(int imm8) const {
-#ifdef OC_ENABLE_SSE2
-    return mm_srai_epi16(imm8);
-#else
+//#ifdef OC_ENABLE_SSE2
+//    return mm_srai_epi16(imm8);
+//#else
     return cc_srai_epi16(imm8);
-#endif
+//#endif
   }
 
-#ifdef OC_ENABLE_SSE2
-  inline block mm_srai_epi16(char imm8) const {
-    return _mm_srai_epi16(*this, imm8);
-  }
-#endif
+//#ifdef OC_ENABLE_SSE2
+//  inline block mm_srai_epi16(char imm8) const {
+//    return _mm_srai_epi16(*this, imm8);
+//  }
+//#endif
   inline block cc_srai_epi16(char imm8) const {
     block ret;
     auto& v = as<std::int16_t>();
@@ -282,16 +283,16 @@ struct alignas(16) block {
   }
 
   inline int movemask_epi8() const {
-#ifdef OC_ENABLE_SSE2
-    return mm_movemask_epi8();
-#else
+//#ifdef OC_ENABLE_SSE2
+//    return mm_movemask_epi8();
+//#else
     return cc_movemask_epi8();
-#endif
+//#endif
   }
 
-#ifdef OC_ENABLE_SSE2
-  inline int mm_movemask_epi8() const { return _mm_movemask_epi8(*this); }
-#endif
+//#ifdef OC_ENABLE_SSE2
+//  inline int mm_movemask_epi8() const { return _mm_movemask_epi8(*this); }
+//#endif
 
   inline int cc_movemask_epi8() const {
     int ret{0};

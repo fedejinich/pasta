@@ -6,6 +6,7 @@
 #include <iterator>
 #include <random>
 #include <vector>
+#include <array>
 #ifdef _WIN32
 #include <Windows.h>
 #include <bcrypt.h>
@@ -98,25 +99,11 @@ static void decode(std::vector<uint64_t>& out, std::vector<uint8_t> encoded,
   }
 }
 
-// random_uint64() taken from the SEAL library
-// (https://github.com/microsoft/SEAL)
+// todo(fedejinich) get a secure randomness source
 static uint64_t random_uint64() {
   uint64_t result;
-#ifdef __linux__
   std::random_device rd("/dev/urandom");
   result = (static_cast<uint64_t>(rd()) << 32) + static_cast<uint64_t>(rd());
-#elif _WIN32
-  if (!BCRYPT_SUCCESS(
-          BCryptGenRandom(NULL, reinterpret_cast<unsigned char*>(&result),
-                          sizeof(result), BCRYPT_USE_SYSTEM_PREFERRED_RNG))) {
-    throw runtime_error("BCryptGenRandom failed");
-  }
-#else
-#warning \
-    "SECURITY WARNING: System detection failed; falling back to a potentially insecure randomness source!"
-  random_device rd;
-  result = (static_cast<uint64_t>(rd()) << 32) + static_cast<uint64_t>(rd());
-#endif
   return result;
 }
 

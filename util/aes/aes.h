@@ -3,7 +3,7 @@
 // domain, waiving all copyright. No restrictions are placed on its use.
 
 #ifdef OC_ENABLE_AESNI
-#include <wmmintrin.h>
+//#include <wmmintrin.h>
 #elif !defined(OC_ENABLE_PORTABLE_AES)
 static_assert(0,
               "OC_ENABLE_PORTABLE_AES must be defined if ENABLE_AESNI is not.");
@@ -177,17 +177,17 @@ class AES {
   std::array<block, 11> mRoundKey;
 };
 
-#ifdef OC_ENABLE_AESNI
-template <>
-inline block AES<NI>::finalEnc(block state, const block& roundKey) {
-  return _mm_aesenclast_si128(state, roundKey);
-}
-
-template <>
-inline block AES<NI>::roundEnc(block state, const block& roundKey) {
-  return _mm_aesenc_si128(state, roundKey);
-}
-#endif
+//#ifdef OC_ENABLE_AESNI
+//template <>
+//inline block AES<NI>::finalEnc(block state, const block& roundKey) {
+//  return _mm_aesenclast_si128(state, roundKey);
+//}
+//
+//template <>
+//inline block AES<NI>::roundEnc(block state, const block& roundKey) {
+//  return _mm_aesenc_si128(state, roundKey);
+//}
+//#endif
 
 // A class to perform AES decryption.
 template <AESTypes type>
