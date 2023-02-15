@@ -2,11 +2,13 @@
 
 This repository isolates the [PASTA](https://eprint.iacr.org/2021/731.pdf) symmetric cipher of the [hybrid-HE-framework](https://github.com/IAIK/hybrid-HE-framework) and bundles it as a static library.
 
-## Compilation
+This project is not optimized and it's not ready for proudction, use it at your own risk.
+
+## Build 
 
 Requirements:
 
-- x86_64 architecture
+- x86_64 architecture (with AVX2 instruction set)
 - cmake
 - autoconf
 - autotool
@@ -58,3 +60,7 @@ To build the Dockerfile
 > docker buildx build --platform linux/amd64 -t pasta .
 > docker run --rm -it pasta
 ```
+
+### Experimental Build
+
+There is also a experimental build (at `experimental-build` branch) which disables optimizations and it's not tied to the x86_64 architecture.
