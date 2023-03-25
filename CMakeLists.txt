@@ -9,8 +9,11 @@ option(BUILD_TESTS "Build tests for HHE" ON)
 # Select ciphers to benchmark
 set(PLAIN_CIPHS
   pasta_3
-  pasta_4
 )
+
+set(SEAL_CIPHS
+        pasta_3
+        )
 
 include(CheckCCompilerFlag)
 function(check_c_compiler_flag_and_add flag result)
@@ -47,6 +50,19 @@ else()
 endif()
 
 add_subdirectory(util)
+
+#find_package(SEAL 3.6.2 QUIET)
+
+#if (NOT SEAL_FOUND)
+  #     prep external libraries
+  add_subdirectory(thirdparty)
+#endif()
+
+# Import Microsoft SEAL
+find_package(SEAL 3.6.2 REQUIRED
+        # Optionaly providing a path so this can be built without installing SEAL
+        PATHS ${symhe_SOURCE_DIR}/thirdparty/SEAL/build/cmake
+        )
 
 # set(M4RI_PREFIX "${CMAKE_SOURCE_DIR}/thirdparty/m4ri/installed")
 # set(M4RI_INCLUDE_DIR "${M4RI_PREFIX}/include")
