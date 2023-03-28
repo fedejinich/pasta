@@ -1,4 +1,4 @@
-#include "pasta_3_seal.h"
+#include "bfv_seal.h"
 
 using namespace seal;
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../../common_Zp/seal_kats.h"
-#include "pasta_3_seal.h"
+#include "bfv_seal.h"
 
 using namespace PASTA_3;
 

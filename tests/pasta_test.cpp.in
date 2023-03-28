@@ -1,4 +1,4 @@
-#include "../../ciphers/${cipher}/seal/testvectors.h"
+#include "../../src/ciphers/pasta/testvectors.h"
 
 int main() {
   bool ret = true;

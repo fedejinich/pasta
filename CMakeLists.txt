@@ -6,14 +6,8 @@ set(CMAKE_CXX_STANDARD 17)
 
 option(BUILD_TESTS "Build tests for HHE" ON)
 
-# Select ciphers to benchmark
-set(PLAIN_CIPHS
-  pasta_3
-)
-
-set(SEAL_CIPHS
-        pasta_3
-        )
+set(PLAIN_CIPHS pasta_3)
+set(SEAL_CIPHS pasta_3)
 
 include(CheckCCompilerFlag)
 function(check_c_compiler_flag_and_add flag result)
@@ -69,7 +63,7 @@ find_package(SEAL 3.6.2 REQUIRED
 # set(M4RI_LIB "${M4RI_PREFIX}/lib/libm4ri.so")
 
 # collect all cipher implementations
-add_subdirectory(ciphers)
+add_subdirectory(src)
 
 # add tests
 enable_testing()

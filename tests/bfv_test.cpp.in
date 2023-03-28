@@ -1,4 +1,4 @@
-#include "../../ciphers/${cipher}/plain/testvectors.h"
+#include "../../src/ciphers/bfv/testvectors.h"
 
 int main() {
   bool ret = true;
