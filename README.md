@@ -1,6 +1,6 @@
-# PASTA Symmetric Cipher
+# hhecpp 
 
-This repository contains a C++ library to build hybrid homomorphic schemes, using [PASTA](https://eprint.iacr.org/2021/731.pdf) as symmetric cipher and [BFV](https://eprint.iacr.org/2012/144.pdf) as homomorphic cipher.
+C++ library for hybrid homomorphic schemes, using [PASTA](https://eprint.iacr.org/2021/731.pdf) as symmetric cipher and [BFV](https://eprint.iacr.org/2012/144.pdf) as homomorphic cipher.
 
 ## Build
 
