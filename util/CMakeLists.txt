@@ -1,5 +1,4 @@
 add_subdirectory(keccak)
-add_subdirectory(aes)
 
 cmake_minimum_required(VERSION 3.10)
 project(Perf C)

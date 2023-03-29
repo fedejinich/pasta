@@ -1,5 +1,3 @@
-#pragma once
-
 #include "pasta/src/common/utils.h"
 #include "../src/common/matrix.h"
 #include "seal/seal.h"
