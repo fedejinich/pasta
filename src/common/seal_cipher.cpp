@@ -1,4 +1,4 @@
-#include "SEAL_Cipher.h"
+#include "seal_cipher.h"
 
 #include <algorithm>
 #include <iostream>
