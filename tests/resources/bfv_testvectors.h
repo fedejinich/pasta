@@ -1,6 +1,6 @@
 #pragma once
 
-#include "pasta/src/common_Zp/seal_kats.h"
+#include "pasta/src/common/seal_kats.h"
 #include "pasta/src/ciphers/bfv/bfv_seal.h"
 
 using namespace PASTA_3;

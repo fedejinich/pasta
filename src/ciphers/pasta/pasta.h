@@ -8,7 +8,7 @@ extern "C" {
 #include "KeccakHash.h"
 }
 
-#include "../../common_Zp/Cipher.h"
+#include "../../common/cipher.h"
 
 namespace PASTA_3 {
 

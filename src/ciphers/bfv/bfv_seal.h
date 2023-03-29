@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../common_Zp/SEAL_Cipher.h"
+#include "../../common/SEAL_Cipher.h"
 #include "../pasta/pasta.h"  // for PASTA_params
 
 namespace PASTA_3 {

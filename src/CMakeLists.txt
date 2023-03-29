@@ -6,7 +6,7 @@ target_link_libraries(pastacipher ${M4RI_LIB} keccak aes perf)
 
 # BFV
 set(SEAL_SRCS ${SEAL_SRCS} ciphers/bfv/bfv_seal.cpp ciphers/pasta/pasta.cpp) # some functions from plain impl are required
-set(SEAL_SRCS ${SEAL_SRCS} common/SEAL_Cipher.cpp common_Zp/SEAL_Cipher.cpp)
+set(SEAL_SRCS ${SEAL_SRCS} common/SEAL_Cipher.cpp)
 add_library(bfvcipher STATIC ${SEAL_SRCS})
 target_include_directories(bfvcipher PRIVATE ${CMAKE_SOURCE_DIR}/..)
 target_link_libraries(bfvcipher SEAL::seal keccak aes)

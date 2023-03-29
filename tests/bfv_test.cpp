@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../src/common/utils.h"
-#include "../src/common_Zp/matrix.h"
+#include "pasta/src/common/utils.h"
+#include "../src/common/matrix.h"
 #include "seal/seal.h"
 #include "pasta/tests/resources/bfv_testvectors.h"
 
@@ -9,7 +9,7 @@ int main() {
     bool ret = true;
     int idx = 0;
     for (auto& test : KNOWN_ANSWER_TESTS) {
-        std::cout << "Test " << idx << "\n";
+        std::cout << "BFV Test " << idx << "\n";
         try {
             bool ok = test.run_test();
             if (ok) std::cout << "... ok";

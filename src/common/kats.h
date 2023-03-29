@@ -10,84 +10,95 @@ extern "C" {
 #include "perf.h"
 }
 
-#include "Cipher.h"
-#include "matrix.h"
 #include "utils.h"
+#include "cipher.h"
+#include "matrix.h"
 
 template <class T>
-class KnownAnswerTest {
+class KnownAnswerTestZp {
  public:
   enum Testcase { MAT, DEC, USE_CASE, PREP };
 
  private:
   static constexpr bool PRESET_SEED = true;
+  static constexpr size_t NUM_MATMULS_SQUARES = 3;
+  static constexpr bool LAST_SQUARE = false;
   utils::SeededRandom rand;
-  std::vector<uint8_t> key;
-  std::vector<uint8_t> plaintext;
-  std::vector<uint8_t> ciphertext_expected;
+  std::vector<uint64_t> key;
+  std::vector<uint64_t> plaintext;
+  std::vector<uint64_t> ciphertext_expected;
+  size_t modulus;
   Testcase tc;
   size_t N;
-  size_t BITSIZE;
 
  public:
-  KnownAnswerTest(std::vector<uint8_t> key, std::vector<uint8_t> plaintext,
-                  std::vector<uint8_t> ciphertext_expected, Testcase tc = DEC,
-                  size_t N = 4, size_t bitsize = 16)
+  KnownAnswerTestZp(std::vector<uint64_t> key, std::vector<uint64_t> plaintext,
+                    std::vector<uint64_t> ciphertext_expected, size_t modulus,
+                    Testcase tc = DEC, size_t N = 4)
       : rand(PRESET_SEED),
         key(key),
         plaintext(plaintext),
         ciphertext_expected(ciphertext_expected),
+        modulus(modulus),
         tc(tc),
-        N(N),
-        BITSIZE(bitsize) {}
+        N(N) {}
 
-  KnownAnswerTest(const uint8_t* key, size_t key_size, const uint8_t* plaintext,
-                  size_t plaintext_size, const uint8_t* ciphertext_expected,
-                  size_t ciphertext_size, Testcase tc = DEC, size_t N = 4,
-                  size_t bitsize = 16)
+  KnownAnswerTestZp(const uint64_t* key, size_t key_size,
+                    const uint64_t* plaintext, size_t plaintext_size,
+                    const uint64_t* ciphertext_expected, size_t ciphertext_size,
+                    size_t modulus, Testcase tc = DEC, size_t N = 4)
       : rand(PRESET_SEED),
         key(key, key + key_size),
         plaintext(plaintext, plaintext + plaintext_size),
         ciphertext_expected(ciphertext_expected,
                             ciphertext_expected + ciphertext_size),
+        modulus(modulus),
         tc(tc),
-        N(N),
-        BITSIZE(bitsize) {}
+        N(N) {}
 
   bool mat_test() {
-    const uint64_t MASK = (1ULL << BITSIZE) - 1;
+    std::cout << "Num matrices = " << NUM_MATMULS_SQUARES << std::endl;
     std::cout << "N = " << N << std::endl;
-    std::cout << "BitSize = " << BITSIZE << std::endl;
     std::cout << "Getting random elements..." << std::flush;
 
-    // random matrix
-    matrix::matrix m(N);
-    for (size_t i = 0; i < N; i++) {
-      m[i].reserve(N);
-      for (size_t j = 0; j < N; j++) {
-        m[i].push_back(rand.random_uint64() & MASK);
+    // random matrices
+    std::vector<matrix::matrix> m(NUM_MATMULS_SQUARES);
+    for (size_t r = 0; r < NUM_MATMULS_SQUARES; r++) {
+      m[r].resize(N);
+      for (size_t i = 0; i < N; i++) {
+        m[r][i].reserve(N);
+        for (size_t j = 0; j < N; j++) {
+          m[r][i].push_back(rand.random_uint64() %
+                            modulus);  // not cryptosecure ;)
+        }
       }
     }
 
-    // random bias
-    matrix::vector b;
-    b.reserve(N);
-    for (size_t i = 0; i < N; i++) {
-      b.push_back(rand.random_uint64() & MASK);
+    // random biases
+    std::vector<matrix::vector> b(NUM_MATMULS_SQUARES);
+    for (size_t r = 0; r < NUM_MATMULS_SQUARES; r++) {
+      b[r].reserve(N);
+      for (size_t i = 0; i < N; i++) {
+        b[r].push_back(rand.random_uint64() % modulus);  // not cryptosecure ;)
+      }
     }
 
     // random input vector
     matrix::vector vi;
     vi.reserve(N);
     for (size_t i = 0; i < N; i++) {
-      vi.push_back(rand.random_uint64() & MASK);
+      vi.push_back(rand.random_uint64() % modulus);  // not cryptosecure ;)
     }
 
     std::cout << "...done" << std::endl;
     std::cout << "Computing in plain..." << std::flush;
 
     matrix::vector vo;
-    matrix::affine(vo, m, vi, b, BITSIZE);
+    for (size_t r = 0; r < NUM_MATMULS_SQUARES; r++) {
+      matrix::affine(vo, m[r], vi, b[r], modulus);
+      if (!LAST_SQUARE && r != NUM_MATMULS_SQUARES - 1)
+        matrix::square(vi, vo, modulus);
+    }
 
     std::cout << "...done" << std::endl;
     return true;
@@ -102,12 +113,11 @@ class KnownAnswerTest {
     std::chrono::high_resolution_clock::time_point time_start, time_end;
     std::chrono::milliseconds time_diff;
 
-    T cipher(key);
+    T cipher(key, modulus);
     std::cout << "Final decrypt..." << std::flush;
     time_start = std::chrono::high_resolution_clock::now();
     uint64_t cycle_start = timing_read(&ctx);
-    std::vector<uint8_t> plain =
-        cipher.decrypt(ciphertext_expected, cipher.get_cipher_size_bits());
+    std::vector<uint64_t> plain = cipher.decrypt(ciphertext_expected);
     uint64_t cycle_end = timing_read(&ctx);
     time_end = std::chrono::high_resolution_clock::now();
     time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -138,42 +148,52 @@ class KnownAnswerTest {
     std::chrono::high_resolution_clock::time_point time_start, time_end;
     std::chrono::milliseconds time_diff;
 
-    const uint64_t MASK = (1ULL << BITSIZE) - 1;
+    std::cout << "Num matrices = " << NUM_MATMULS_SQUARES << std::endl;
     std::cout << "N = " << N << std::endl;
-    std::cout << "BitSize = " << BITSIZE << std::endl;
     std::cout << "Getting random elements..." << std::flush;
 
-    // random matrix
-    matrix::matrix m(N);
-    for (size_t i = 0; i < N; i++) {
-      m[i].reserve(N);
-      for (size_t j = 0; j < N; j++) {
-        m[i].push_back(rand.random_uint64() & MASK);
+    // random matrices
+    std::vector<matrix::matrix> m(NUM_MATMULS_SQUARES);
+    for (size_t r = 0; r < NUM_MATMULS_SQUARES; r++) {
+      m[r].resize(N);
+      for (size_t i = 0; i < N; i++) {
+        m[r][i].reserve(N);
+        for (size_t j = 0; j < N; j++) {
+          m[r][i].push_back(rand.random_uint64() %
+                            modulus);  // not cryptosecure ;)
+        }
       }
     }
 
-    // random bias
-    matrix::vector b;
-    b.reserve(N);
-    for (size_t i = 0; i < N; i++) {
-      b.push_back(rand.random_uint64() & MASK);
+    // random biases
+    std::vector<matrix::vector> b(NUM_MATMULS_SQUARES);
+    for (size_t r = 0; r < NUM_MATMULS_SQUARES; r++) {
+      b[r].reserve(N);
+      for (size_t i = 0; i < N; i++) {
+        b[r].push_back(rand.random_uint64() % modulus);  // not cryptosecure ;)
+      }
     }
 
     // random input vector
     matrix::vector vi;
     vi.reserve(N);
     for (size_t i = 0; i < N; i++) {
-      vi.push_back(rand.random_uint64() & MASK);
+      vi.push_back(rand.random_uint64() % modulus);  // not cryptosecure ;)
     }
 
     std::cout << "...done" << std::endl;
 
     std::cout << "Computing in plain..." << std::flush;
 
-    matrix::vector vo, vo_p(N);
+    matrix::vector vo, vo_p(N), vi_tmp;
     time_start = std::chrono::high_resolution_clock::now();
     uint64_t cycle_start = timing_read(&ctx);
-    matrix::affine(vo, m, vi, b, BITSIZE);
+    vi_tmp = vi;
+    for (size_t r = 0; r < NUM_MATMULS_SQUARES; r++) {
+      matrix::affine(vo, m[r], vi_tmp, b[r], modulus);
+      if (!LAST_SQUARE && r != NUM_MATMULS_SQUARES - 1)
+        matrix::square(vi_tmp, vo, modulus);
+    }
     uint64_t cycle_end = timing_read(&ctx);
     time_end = std::chrono::high_resolution_clock::now();
     time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -183,12 +203,10 @@ class KnownAnswerTest {
     std::cout << "Cycles: " << cycle_end - cycle_start << std::endl;
 
     std::cout << "Encrypting input..." << std::flush;
-    T cipher(key);
-    std::vector<uint8_t> vi_encoded;
-    utils::encode(vi_encoded, vi, BITSIZE);
+    T cipher(key, modulus);
     time_start = std::chrono::high_resolution_clock::now();
     cycle_start = timing_read(&ctx);
-    std::vector<uint8_t> ciph = cipher.encrypt(vi_encoded, BITSIZE * N);
+    std::vector<uint64_t> ciph = cipher.encrypt(vi);
     cycle_end = timing_read(&ctx);
     time_end = std::chrono::high_resolution_clock::now();
     time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -200,13 +218,11 @@ class KnownAnswerTest {
     std::cout << "Decrypting..." << std::flush;
     time_start = std::chrono::high_resolution_clock::now();
     cycle_start = timing_read(&ctx);
-    std::vector<uint8_t> plain_encoded = cipher.decrypt(ciph, BITSIZE * N);
+    std::vector<uint64_t> plain = cipher.decrypt(ciph);
     cycle_end = timing_read(&ctx);
     time_end = std::chrono::high_resolution_clock::now();
     time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(
         time_end - time_start);
-    matrix::vector plain;
-    utils::decode(plain, plain_encoded, BITSIZE);
     std::cout << "...done" << std::endl;
     std::cout << "Time: " << time_diff.count() << " milliseconds" << std::endl;
     std::cout << "Cycles: " << cycle_end - cycle_start << std::endl;
@@ -215,7 +231,11 @@ class KnownAnswerTest {
 
     time_start = std::chrono::high_resolution_clock::now();
     cycle_start = timing_read(&ctx);
-    matrix::affine(vo_p, m, plain, b, BITSIZE);
+    for (size_t r = 0; r < NUM_MATMULS_SQUARES; r++) {
+      matrix::affine(vo_p, m[r], plain, b[r], modulus);
+      if (!LAST_SQUARE && r != NUM_MATMULS_SQUARES - 1)
+        matrix::square(plain, vo_p, modulus);
+    }
     cycle_end = timing_read(&ctx);
     time_end = std::chrono::high_resolution_clock::now();
     time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -223,6 +243,8 @@ class KnownAnswerTest {
     std::cout << "...done" << std::endl;
     std::cout << "Time: " << time_diff.count() << " milliseconds" << std::endl;
     std::cout << "Cycles: " << cycle_end - cycle_start << std::endl;
+
+    timing_close(&ctx);
 
     if (vo != vo_p) {
       std::cerr << cipher.get_cipher_name() << " KATS failed!\n";
@@ -242,7 +264,7 @@ class KnownAnswerTest {
     std::chrono::high_resolution_clock::time_point time_start, time_end;
     std::chrono::milliseconds time_diff;
 
-    T cipher(key);
+    T cipher(key, modulus);
     std::cout << "Preprocessing constants for 1 block..." << std::flush;
     time_start = std::chrono::high_resolution_clock::now();
     uint64_t cycle_start = timing_read(&ctx);

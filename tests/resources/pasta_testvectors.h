@@ -1,6 +1,6 @@
 #pragma once
 
-#include "pasta/src/common_Zp/kats.h"
+#include "pasta/src/common/kats.h"
 #include "pasta/src/ciphers/pasta/pasta.h"
 
 using namespace PASTA_3;

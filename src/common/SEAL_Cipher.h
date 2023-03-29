@@ -1,22 +1,18 @@
 #pragma once
 
-// an abstract interface of a cipher, for evaluation in SEAL
+// an abstract interface of a Z_p cipher, for evaluation in SEAL
 
-#include "Cipher.h"
+#include "cipher.h"
 #include "seal/seal.h"
 
-class SEALCipher {
+class SEALZpCipher {
  public:
-  typedef seal::Ciphertext e_bit;
-  typedef std::vector<e_bit> e_int;
-  typedef std::vector<e_int> e_vector;
-  typedef std::vector<e_vector> e_matrix;
   typedef std::vector<uint64_t> vector;
   typedef std::vector<std::vector<uint64_t>> matrix;
 
  protected:
-  std::vector<uint8_t> secret_key;
-  BlockCipherParams params;
+  std::vector<uint64_t> secret_key;
+  ZpCipherParams params;
   uint64_t plain_mod;
   uint64_t mod_degree;
 
@@ -28,38 +24,38 @@ class SEALCipher {
   seal::SecretKey he_sk;
   seal::PublicKey he_pk;
   seal::RelinKeys he_rk;
+  seal::GaloisKeys he_gk;
 
   seal::Encryptor encryptor;
   seal::Evaluator evaluator;
   seal::Decryptor decryptor;
+  seal::BatchEncoder batch_encoder;
 
-  void CLAinternal(e_int& s, size_t bitsize, size_t levels, size_t size,
-                   std::vector<std::vector<e_bit>>& g,
-                   std::vector<std::vector<e_bit>>& p, std::vector<e_bit>& c);
-  void fpg(const std::vector<e_bit>& g, const std::vector<e_bit>& p, size_t i,
-           e_bit& out_g, e_bit& out_p);
+  std::vector<int> gk_indices;
 
-  void treeAdd(std::vector<e_int>& tree);
-  // helper for mul
-  void treeAddMul(std::vector<e_int>& tree);
+  bool use_bsgs = false;
+  size_t bsgs_n1;
+  size_t bsgs_n2;
 
  public:
-  SEALCipher(BlockCipherParams params, std::vector<uint8_t> secret_key,
-             std::shared_ptr<seal::SEALContext> con);
+  SEALZpCipher(ZpCipherParams params, std::vector<uint64_t> secret_key,
+               std::shared_ptr<seal::SEALContext> con);
 
-  virtual ~SEALCipher() = default;
-  // Size of the secret key in bytes
-  size_t get_key_size_bytes() const { return params.key_size_bytes; }
-  // Size of the secret key in bits
-  size_t get_key_size_bits() const { return params.key_size_bits; }
-  // Size of a plaintext block in bytes
-  size_t get_plain_size_bytes() const { return params.plain_size_bytes; }
-  // Size of a plaintext block in bits
-  size_t get_plain_size_bits() const { return params.plain_size_bits; }
-  // Size of a plaintext block in bytes
-  size_t get_cipher_size_bytes() const { return params.cipher_size_bytes; }
-  // Size of a plaintext block in bits
-  size_t get_cipher_size_bits() const { return params.cipher_size_bits; }
+  virtual ~SEALZpCipher() = default;
+  // Size of the secret key in words
+  size_t get_key_size() const { return params.key_size; }
+  // Size of a plaintext block in words
+  size_t get_plain_size() const { return params.plain_size; }
+  // Size of a plaintext block in words
+  size_t get_cipher_size() const { return params.cipher_size; }
+
+  void add_some_gk_indices(std::vector<int>& gk_ind);
+  void add_bsgs_indices(uint64_t bsgs_n1, uint64_t bsgs_n2);
+  void add_diagonal_indices(size_t size);
+  void create_gk();
+
+  size_t get_cipher_size(seal::Ciphertext& ct, bool mod_switch = false,
+                         size_t levels_from_last = 0);
 
   // A displayable name for this cipher
   virtual std::string get_cipher_name() const = 0;
@@ -67,54 +63,55 @@ class SEALCipher {
   static std::shared_ptr<seal::SEALContext> create_context(size_t mod_degree,
                                                            uint64_t plain_mod,
                                                            int seclevel = 128);
-  virtual void encrypt_key() = 0;
+  virtual void encrypt_key(bool batch_encoder = false) = 0;
   virtual std::vector<seal::Ciphertext> HE_decrypt(
-      std::vector<uint8_t>& ciphertext, size_t bits) = 0;
-  virtual std::vector<uint8_t> decrypt_result(
-      std::vector<seal::Ciphertext>& ciphertexts) = 0;
+      std::vector<uint64_t>& ciphertext, bool batch_encoder = false) = 0;
+  virtual std::vector<uint64_t> decrypt_result(
+      std::vector<seal::Ciphertext>& ciphertext,
+      bool batch_encoder = false) = 0;
+  virtual void add_gk_indices() = 0;
+
+  void activate_bsgs(bool activate);
+  void set_bsgs_params(uint64_t bsgs_n1, uint64_t bsgs_n2);
 
   void print_parameters();
   int print_noise();
   int print_noise(std::vector<seal::Ciphertext>& ciphs);
   int print_noise(seal::Ciphertext& ciph);
 
-  void halfAdder(e_bit& c_out, e_bit& s, const e_bit& a, const e_bit& b);
-  void fullAdder(e_bit& c_out, e_bit& s, const e_bit& a, const e_bit& b,
-                 const e_bit& c_in);
+  void mask(seal::Ciphertext& cipher, std::vector<uint64_t>& mask);
+  void flatten(std::vector<seal::Ciphertext>& in, seal::Ciphertext& out);
 
-  // n-bit
-  void rippleCarryAdder(e_int& s, const e_int& a, const e_int& b);
-  void carryLookaheadAdder(e_int& s, const e_int& a, const e_int& b,
-                           int levels = 2, int size = 4);
+  void diagonal(seal::Ciphertext& in_out, const matrix& mat);
+  void babystep_giantstep(seal::Ciphertext& in_out, const matrix& mat);
 
-  // n x n = n bit multiplier
-  void multiply(e_int& s, const e_int& a, const e_int& b);
-
-  // n x n = n bit multiplier
-  void multiplyPlain(e_int& s, const e_int& a, const uint64_t b);
-
-  void halfAdderPlain(e_bit& c_out, e_bit& s, const e_bit& a, const bool b);
-  void fullAdderPlain(e_bit& c_out, e_bit& s, const e_bit& a, const bool b,
-                      const e_bit& c_in);
-  void rippleCarryAdderPlain(e_int& s, const e_int& a, const uint64_t b);
-  void carryLookaheadAdderPlain(e_int& s, const e_int& a, const uint64_t b,
-                                int levels = 2, int size = 4);
-
-  void encrypt(e_int& out, uint16_t in);
-  void encrypt(e_int& out, uint64_t in, size_t bitsize = 64);
-  void decrypt(e_int& in, uint16_t& out);
-  void decrypt(e_int& in, uint64_t& out);
-
-  void decode(e_vector& out, std::vector<seal::Ciphertext> encoded,
-              size_t bitsize);
-
+  // non-packed
+  void encrypt(seal::Ciphertext& out, uint64_t in, bool batch_encoder = false);
+  void decrypt(seal::Ciphertext& in, uint64_t& out, bool batch_encoder = false);
   // vo = M * vi
-  void matMul(e_vector& vo, const matrix& M, const e_vector& vi);
-
+  void matMul(std::vector<seal::Ciphertext>& vo, const matrix& M,
+              const std::vector<seal::Ciphertext>& vi,
+              bool batch_encoder = false);
   // vo = vi + b
-  void vecAdd(e_vector& vo, const e_vector& vi, const vector& b);
-
+  void vecAdd(std::vector<seal::Ciphertext>& vo,
+              const std::vector<seal::Ciphertext>& vi, const vector& b,
+              bool batch_encoder = false);
   // vo = M * vi + b
-  void affine(e_vector& vo, const matrix& M, const e_vector& vi,
-              const vector& b);
+  void affine(std::vector<seal::Ciphertext>& vo, const matrix& M,
+              const std::vector<seal::Ciphertext>& vi, const vector& b,
+              bool batch_encoder = false);
+  void square(std::vector<seal::Ciphertext>& vo,
+              const std::vector<seal::Ciphertext>& vi);
+
+  // packed
+  void packed_encrypt(seal::Ciphertext& out, std::vector<uint64_t> in);
+  void packed_decrypt(seal::Ciphertext& in, std::vector<uint64_t>& out,
+                      size_t size);
+  // vo = M * vi
+  void packed_matMul(seal::Ciphertext& vo, const matrix& M,
+                     const seal::Ciphertext& vi);
+  // vo = M * vi + b
+  void packed_affine(seal::Ciphertext& vo, const matrix& M,
+                     const seal::Ciphertext& vi, const vector& b);
+  void packed_square(seal::Ciphertext& vo, const seal::Ciphertext& vi);
 };

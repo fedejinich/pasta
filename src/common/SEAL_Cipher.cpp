@@ -1,10 +1,11 @@
 #include "SEAL_Cipher.h"
 
+#include <algorithm>
 #include <iostream>
 
-SEALCipher::SEALCipher(BlockCipherParams params,
-                       std::vector<uint8_t> secret_key,
-                       std::shared_ptr<seal::SEALContext> con)
+SEALZpCipher::SEALZpCipher(ZpCipherParams params,
+                           std::vector<uint64_t> secret_key,
+                           std::shared_ptr<seal::SEALContext> con)
     : secret_key(secret_key),
       params(params),
       context(con),
@@ -12,8 +13,9 @@ SEALCipher::SEALCipher(BlockCipherParams params,
       he_sk(keygen.secret_key()),
       encryptor(*context, he_sk),
       evaluator(*context),
-      decryptor(*context, he_sk) {
-  if (secret_key.size() != params.key_size_bytes)
+      decryptor(*context, he_sk),
+      batch_encoder(*context) {
+  if (secret_key.size() != params.key_size)
     throw std::runtime_error("Invalid Key length");
 
   keygen.create_relin_keys(he_rk);
@@ -24,7 +26,7 @@ SEALCipher::SEALCipher(BlockCipherParams params,
   plain_mod = context->first_context_data()->parms().plain_modulus().value();
 }
 
-std::shared_ptr<seal::SEALContext> SEALCipher::create_context(
+std::shared_ptr<seal::SEALContext> SEALZpCipher::create_context(
     size_t mod_degree, uint64_t plain_mod, int seclevel) {
   if (seclevel != 128) throw std::runtime_error("Security Level not supported");
   seal::sec_level_type sec = seal::sec_level_type::tc128;
@@ -52,11 +54,11 @@ std::shared_ptr<seal::SEALContext> SEALCipher::create_context(
 }
 
 //----------------------------------------------------------------
-int SEALCipher::print_noise() { return print_noise(secret_key_encrypted); }
+int SEALZpCipher::print_noise() { return print_noise(secret_key_encrypted); }
 
 //----------------------------------------------------------------
 
-int SEALCipher::print_noise(std::vector<seal::Ciphertext>& ciphs) {
+int SEALZpCipher::print_noise(std::vector<seal::Ciphertext>& ciphs) {
   int min = decryptor.invariant_noise_budget(ciphs[0]);
   int max = min;
   for (uint64_t i = 1; i < ciphs.size(); i++) {
@@ -71,7 +73,7 @@ int SEALCipher::print_noise(std::vector<seal::Ciphertext>& ciphs) {
 
 //----------------------------------------------------------------
 
-int SEALCipher::print_noise(seal::Ciphertext& ciph) {
+int SEALZpCipher::print_noise(seal::Ciphertext& ciph) {
   int noise = decryptor.invariant_noise_budget(ciph);
   std::cout << "noise budget: " << noise << std::endl;
   return noise;
@@ -79,7 +81,7 @@ int SEALCipher::print_noise(seal::Ciphertext& ciph) {
 
 //----------------------------------------------------------------
 
-void SEALCipher::print_parameters() {
+void SEALZpCipher::print_parameters() {
   // Verify parameters
   if (!context) {
     throw std::invalid_argument("context is not set");
@@ -130,472 +132,349 @@ void SEALCipher::print_parameters() {
   std::cout << "\\" << std::endl;
 }
 
-void SEALCipher::halfAdder(e_bit& c_out, e_bit& s, const e_bit& a,
-                           const e_bit& b) {
-  evaluator.multiply(a, b, c_out);
-  evaluator.relinearize_inplace(c_out, he_rk);
+//----------------------------------------------------------------
 
-  evaluator.add(a, b, s);
-}
-
-void SEALCipher::fullAdder(e_bit& c_out, e_bit& s, const e_bit& a,
-                           const e_bit& b, const e_bit& c_in) {
-  e_bit tmp_a, tmp_b, tmp_c;
-  evaluator.add(a, c_in, tmp_a);
-  evaluator.add(b, c_in, tmp_b);
-  evaluator.multiply(tmp_a, tmp_b, tmp_c);
-  evaluator.relinearize_inplace(tmp_c, he_rk);
-  evaluator.add_inplace(tmp_c, c_in);
-
-  evaluator.add(a, b, s);
-  evaluator.add_inplace(s, c_in);
-
-  c_out = tmp_c;
-}
-
-void SEALCipher::rippleCarryAdder(e_int& s, const e_int& a, const e_int& b) {
-  size_t n = a.size();
-  if (s.size() != n) s.resize(n);
-  e_bit c;
-  halfAdder(c, s[0], a[0], b[0]);
-  for (size_t i = 1; i < n - 1; i++) fullAdder(c, s[i], a[i], b[i], c);
-  evaluator.add(a[n - 1], b[n - 1], s[n - 1]);
-  evaluator.add_inplace(s[n - 1], c);
-}
-
-void SEALCipher::fpg(const std::vector<e_bit>& g, const std::vector<e_bit>& p,
-                     size_t i, e_bit& out_g, e_bit& out_p) {
-  // out_p
-  evaluator.multiply(p[i], p[i + 1], out_p);
-  evaluator.relinearize_inplace(out_p, he_rk);
-  e_bit tmp;
-  evaluator.multiply(p[i + 2], p[i + 3], tmp);
-  evaluator.relinearize_inplace(tmp, he_rk);
-  evaluator.multiply_inplace(out_p, tmp);
-  evaluator.relinearize_inplace(out_p, he_rk);
-
-  // out_g
-  evaluator.multiply(g[i], p[i + 1], out_g);
-  evaluator.relinearize_inplace(out_g, he_rk);
-  evaluator.multiply_inplace(out_g, tmp);
-  evaluator.relinearize_inplace(out_g, he_rk);
-  evaluator.multiply_inplace(tmp, g[i + 1]);
-  evaluator.relinearize_inplace(tmp, he_rk);
-  evaluator.add_inplace(out_g, tmp);
-  evaluator.add_inplace(out_g, g[i + 3]);
-  evaluator.multiply(g[i + 2], p[i + 3], tmp);
-  evaluator.relinearize_inplace(tmp, he_rk);
-  evaluator.add_inplace(out_g, tmp);
-}
-
-void SEALCipher::carryLookaheadAdder(e_int& s, const e_int& a, const e_int& b,
-                                     int levels, int size) {
-  if (levels > 3 || levels < 1)
-    throw std::runtime_error("number of CLA levels not supported");
-
-  size_t bitsize = size;
-  for (int i = 1; i < levels; i++) bitsize *= size;
-
-  if (s.size() != bitsize) s.resize(bitsize);
-
-  std::vector<std::vector<e_bit>> g(levels), p(levels);
-  std::vector<e_bit> c(bitsize);
-
-  // claculate g, p
-  g[0].resize(bitsize);
-  p[0].resize(bitsize);
-  for (size_t i = 0; i < bitsize; i++) {
-    evaluator.add(a[i], b[i], p[0][i]);
-    evaluator.multiply(a[i], b[i], g[0][i]);
-    evaluator.relinearize_inplace(g[0][i], he_rk);
-  }
-
-  CLAinternal(s, bitsize, levels, size, g, p, c);
-}
-
-void SEALCipher::CLAinternal(e_int& s, size_t bitsize, size_t levels,
-                             size_t size, std::vector<std::vector<e_bit>>& g,
-                             std::vector<std::vector<e_bit>>& p,
-                             std::vector<e_bit>& c) {
-  size_t lim = bitsize / size;
-  for (size_t l = 1; l < levels; l++) {
-    g[l].resize(lim);
-    p[l].resize(lim);
-    for (size_t i = 0; i < lim; i++)
-      fpg(g[l - 1], p[l - 1], size * i, g[l][i], p[l][i]);
-    lim /= size;
-  }
-
-  int curr_level = levels - 1;
-
-  for (size_t k = 0; k < size - 1; k++) {
-    size_t src_ind = bitsize / size * k;
-    size_t g_p_ind = src_ind * size / bitsize;
-    size_t des_ind = bitsize / size * (k + 1);
-    if (src_ind == 0) {
-      c[des_ind] = g[curr_level][0];
-      continue;
-    }
-    evaluator.multiply(c[src_ind], p[curr_level][g_p_ind], c[des_ind]);
-    evaluator.relinearize_inplace(c[des_ind], he_rk);
-    evaluator.add_inplace(c[des_ind], g[curr_level][g_p_ind]);
-  }
-
-  curr_level--;
-  if (curr_level >= 0) {
-    for (size_t k = 0; k < size; k++) {
-      for (size_t j = 0; j < size - 1; j++) {
-        size_t src_ind = bitsize / size * k + bitsize / size / size * j;
-        size_t g_p_ind = src_ind * size * size / bitsize;
-        size_t des_ind = bitsize / size * k + bitsize / size / size * (j + 1);
-        if (src_ind == 0) {
-          c[des_ind] = g[curr_level][0];
-          continue;
-        }
-        evaluator.multiply(c[src_ind], p[curr_level][g_p_ind], c[des_ind]);
-        evaluator.relinearize_inplace(c[des_ind], he_rk);
-        evaluator.add_inplace(c[des_ind], g[curr_level][g_p_ind]);
-      }
-    }
-  }
-
-  curr_level--;
-  if (curr_level >= 0) {
-    for (size_t k = 0; k < size; k++) {
-      for (size_t j = 0; j < size; j++) {
-        for (size_t i = 0; i < size - 1; i++) {
-          size_t src_ind = bitsize / size * k + bitsize / size / size * j + i;
-          size_t g_p_ind = src_ind * size * size * size / bitsize;
-          size_t des_ind =
-              bitsize / size * k + bitsize / size / size * j + (i + 1);
-          if (src_ind == 0) {
-            c[des_ind] = g[curr_level][0];
-            continue;
-          }
-          evaluator.multiply(c[src_ind], p[curr_level][g_p_ind], c[des_ind]);
-          evaluator.relinearize_inplace(c[des_ind], he_rk);
-          evaluator.add_inplace(c[des_ind], g[curr_level][g_p_ind]);
-        }
-      }
-    }
-  }
-
-  s[0] = p[0][0];
-  for (size_t i = 1; i < bitsize; i++) {
-    evaluator.add(p[0][i], c[i], s[i]);
-  }
-}
-
-void SEALCipher::encrypt(e_int& out, uint16_t in) {
-  size_t bitsize = sizeof(in) * 8;
-  out.reserve(bitsize);
-  for (size_t i = 0; i < bitsize; i++) {
-    int32_t bit = (in >> i) & 1;
-    seal::Plaintext p;
-    p = bit;
-    e_bit c;
-    encryptor.encrypt(p, c);
-    out.push_back(std::move(c));
-  }
-}
-
-void SEALCipher::encrypt(e_int& out, uint64_t in, size_t bitsize) {
-  out.reserve(bitsize);
-  for (size_t i = 0; i < bitsize; i++) {
-    int32_t bit = (in >> i) & 1;
-    seal::Plaintext p;
-    p = bit;
-    e_bit c;
-    encryptor.encrypt(p, c);
-    out.push_back(std::move(c));
-  }
-}
-
-void SEALCipher::decrypt(e_int& in, uint16_t& out) {
-  out = 0;
-  size_t bitsize = std::min(sizeof(out) * 8, in.size());
-  for (size_t i = 0; i < bitsize; i++) {
-    seal::Plaintext p;
-    decryptor.decrypt(in[i], p);
-    uint16_t bit = p[0];
-    out |= (bit << i);
-  }
-}
-
-void SEALCipher::decrypt(e_int& in, uint64_t& out) {
-  out = 0;
-  size_t bitsize = std::min(sizeof(out) * 8, in.size());
-  for (size_t i = 0; i < bitsize; i++) {
-    seal::Plaintext p;
-    decryptor.decrypt(in[i], p);
-    uint64_t bit = p[0];
-    out |= (bit << i);
-  }
-}
-
-void SEALCipher::decode(e_vector& out, std::vector<seal::Ciphertext> encoded,
-                        size_t bitsize) {
-  size_t size = encoded.size() / bitsize;
-  if (out.size() != size) out.resize(size);
-
-  for (size_t i = 0; i < size; i++) {
-    out[i].resize(bitsize);
-    for (size_t k = 0; k < bitsize; k++) {
-      out[i][k] = encoded[i * bitsize + k];
-    }
-  }
-}
-
-// n x n = n bit multiplier
-void SEALCipher::multiply(e_int& s, const e_int& a, const e_int& b) {
-  size_t n = a.size();
-
-  std::vector<e_int> tree(n);
-  for (size_t i = 0; i < n; i++) {
-    tree[i].resize(n - i);
-    for (size_t j = 0; j < n - i; j++) {
-      evaluator.multiply(a[j], b[i], tree[i][j]);
-      evaluator.relinearize_inplace(tree[i][j], he_rk);
-    }
-  }
-
-  treeAddMul(tree);
-  s = tree[0];
-}
-
-void SEALCipher::treeAddMul(std::vector<e_int>& tree) {
-  auto len = tree.size();
-
-  // tree add
-  while (len != 1) {
-    auto new_len = len / 2;
-    for (unsigned int i = 0; i < new_len; i++) {
-      size_t len1 = tree[2 * i].size();
-      size_t len2 = tree[2 * i + 1].size();
-      size_t diff = len1 - len2;
-      e_bit c;
-      tree[i].resize(len1);
-      for (size_t j = 0; j < diff; j++) tree[i][j] = tree[2 * i][j];
-      halfAdder(c, tree[i][diff], tree[2 * i][diff], tree[2 * i + 1][0]);
-      for (size_t j = diff + 1; j < len1 - 1; j++)
-        fullAdder(c, tree[i][j], tree[2 * i][j], tree[2 * i + 1][j - diff], c);
-      if (diff + 1 < len1) {
-        // already did that
-        evaluator.add(tree[2 * i][len1 - 1], tree[2 * i + 1][len1 - 1 - diff],
-                      tree[i][len1 - 1]);
-        evaluator.add_inplace(tree[i][len1 - 1], c);
-      }
-    }
-    if (len % 2) {
-      tree[new_len] = tree[len - 1];
-      new_len++;
-    }
-    len = new_len;
-  }
-}
-
-void SEALCipher::treeAdd(std::vector<e_int>& tree) {
-  auto len = tree.size();
-
-  size_t bitsize = tree[0].size();
-
-  // tree add
-  while (len != 1) {
-    auto new_len = len / 2;
-    for (unsigned int i = 0; i < new_len; i++) {
-      if (bitsize == 16)
-        carryLookaheadAdder(tree[i], tree[2 * i], tree[2 * i + 1]);
-      else if (bitsize == 64)
-        carryLookaheadAdder(tree[i], tree[2 * i], tree[2 * i + 1], 3);
-      else
-        rippleCarryAdder(tree[i], tree[2 * i], tree[2 * i + 1]);
-    }
-    if (len % 2) {
-      tree[new_len] = tree[len - 1];
-      new_len++;
-    }
-    len = new_len;
-  }
-}
-
-void SEALCipher::multiplyPlain(e_int& s, const e_int& a, const uint64_t b) {
-  size_t n = a.size();
-
-  if (!b) {
-    seal::Plaintext p;
-    p = 0;
-    e_bit c;
-    encryptor.encrypt(p, c);
-    s.clear();
-    s.reserve(n);
-    s.insert(s.begin(), n, c);
-    return;
-  }
-
-  std::vector<e_int> tree;
-  tree.reserve(n);
-  for (size_t i = 0; i < n; i++) {
-    int32_t bit = (b >> i) & 1;
-    if (!bit) continue;
-    tree.emplace_back(a.begin(), a.end() - i);
-  }
-
-  treeAddMul(tree);
-  s.clear();
-  s.reserve(n);
-
-  size_t diff = n - tree[0].size();
-  if (diff) {
-    // padd with 0
-    seal::Plaintext p;
-    p = 0;
-    e_bit c;
-    encryptor.encrypt(p, c);
-    s.insert(s.begin(), diff, c);
-  }
-  s.insert(s.end(), tree[0].begin(), tree[0].end());
-}
-
-void SEALCipher::halfAdderPlain(e_bit& c_out, e_bit& s, const e_bit& a,
-                                const bool b) {
-  if (b) {
-    c_out = a;
-    seal::Plaintext p;
-    p = b;
-    evaluator.add_plain(a, p, s);
-    return;
-  }
-
+void SEALZpCipher::mask(seal::Ciphertext& cipher, std::vector<uint64_t>& mask) {
   seal::Plaintext p;
-  p = 0;
-  encryptor.encrypt(p, c_out);
-  s = a;
+  batch_encoder.encode(mask, p);
+  evaluator.multiply_plain_inplace(cipher, p);
 }
 
-void SEALCipher::fullAdderPlain(e_bit& c_out, e_bit& s, const e_bit& a,
-                                const bool b, const e_bit& c_in) {
-  e_bit tmp_a, tmp_c;
-  if (b) {
-    seal::Plaintext p;
-    p = b;
-    evaluator.add_plain(a, p, tmp_a);
-    evaluator.multiply(c_in, tmp_a, tmp_c);
-    evaluator.relinearize_inplace(tmp_c, he_rk);
-    evaluator.add_inplace(tmp_c, a);
+//----------------------------------------------------------------
 
-    evaluator.add(a, c_in, s);
-    evaluator.add_plain_inplace(s, p);
-  } else {
-    evaluator.multiply(c_in, a, tmp_c);
-    evaluator.relinearize_inplace(tmp_c, he_rk);
-
-    evaluator.add(a, c_in, s);
-  }
-  c_out = tmp_c;
-}
-
-void SEALCipher::rippleCarryAdderPlain(e_int& s, const e_int& a,
-                                       const uint64_t b) {
-  if (!b) {
-    s = a;
-    return;
-  }
-
-  size_t n = a.size();
-  if (s.size() != n) s.resize(n);
-  e_bit c;
-
-  bool bit = b & 1;
-  halfAdderPlain(c, s[0], a[0], bit);
-  for (size_t i = 1; i < n - 1; i++) {
-    bit = (b >> i) & 1;
-    fullAdderPlain(c, s[i], a[i], bit, c);
-  }
-  bit = (b >> (n - 1)) & 1;
-  evaluator.add(a[n - 1], c, s[n - 1]);
-  if (bit) {
-    seal::Plaintext p;
-    p = bit;
-    evaluator.add_plain_inplace(s[n - 1], p);
+void SEALZpCipher::flatten(std::vector<seal::Ciphertext>& in,
+                           seal::Ciphertext& out) {
+  out = in[0];
+  seal::Ciphertext tmp;
+  for (size_t i = 1; i < in.size(); i++) {
+    evaluator.rotate_rows(in[i], -(int)(i * params.plain_size), he_gk, tmp);
+    evaluator.add_inplace(out, tmp);
   }
 }
 
-void SEALCipher::carryLookaheadAdderPlain(e_int& s, const e_int& a,
-                                          const uint64_t b, int levels,
-                                          int size) {
-  if (!b) {
-    s = a;
-    return;
-  }
+//----------------------------------------------------------------
 
-  if (levels > 3 || levels < 1)
-    throw std::runtime_error("number of CLA levels not supported");
+void SEALZpCipher::babystep_giantstep(seal::Ciphertext& in_out,
+                                      const matrix& mat) {
+  const size_t matrix_dim = mat.size();
 
-  size_t bitsize = size;
-  for (size_t i = 1; i < levels; i++) bitsize *= size;
+  size_t nslots = batch_encoder.slot_count();
 
-  if (s.size() != bitsize) s.resize(bitsize);
+  if (matrix_dim * 2 != nslots && matrix_dim * 4 > nslots)
+    throw std::runtime_error("too little slots for matmul implementation!");
 
-  std::vector<std::vector<e_bit>> g(levels), p(levels);
-  std::vector<e_bit> c(bitsize);
+  if (bsgs_n1 * bsgs_n2 != matrix_dim)
+    std::cout << "WARNING: wrong bsgs parameters" << std::endl;
 
-  // claculate g, p
-  g[0].resize(bitsize);
-  p[0].resize(bitsize);
-  for (size_t i = 0; i < bitsize; i++) {
-    bool bit = (b >> i) & 1;
-    if (bit) {
-      seal::Plaintext pl;
-      pl = bit;
-      evaluator.add_plain(a[i], pl, p[0][i]);
-      g[0][i] = a[i];
-      continue;
+  // diagonal method preperation:
+  std::vector<seal::Plaintext> matrix;
+  matrix.reserve(matrix_dim);
+  for (auto i = 0ULL; i < matrix_dim; i++) {
+    std::vector<uint64_t> diag;
+    auto k = i / bsgs_n1;
+    diag.reserve(matrix_dim + k * bsgs_n1);
+
+    for (auto j = 0ULL; j < matrix_dim; j++) {
+      diag.push_back(mat[j][(i + j) % matrix_dim]);
     }
-    p[0][i] = a[i];
-    seal::Plaintext pl;
-    pl = 0;
-    encryptor.encrypt(pl, g[0][i]);
+    // rotate:
+    if (k)
+      std::rotate(diag.begin(), diag.begin() + diag.size() - k * bsgs_n1,
+                  diag.end());
+
+    // prepare for non-full-packed rotations
+    if (nslots != matrix_dim * 2) {
+      for (uint64_t index = 0; index < k * bsgs_n1; index++) {
+        diag.push_back(diag[index]);
+        diag[index] = 0;
+      }
+    }
+
+    seal::Plaintext row;
+    batch_encoder.encode(diag, row);
+    matrix.push_back(row);
   }
 
-  CLAinternal(s, bitsize, levels, size, g, p, c);
+  // prepare for non-full-packed rotations
+  if (nslots != matrix_dim * 2) {
+    seal::Ciphertext state_rot;
+    evaluator.rotate_rows(in_out, -((int)matrix_dim), he_gk, state_rot);
+    evaluator.add_inplace(in_out, state_rot);
+  }
+
+  seal::Ciphertext temp;
+  seal::Ciphertext outer_sum;
+  seal::Ciphertext inner_sum;
+
+  // prepare rotations
+  std::vector<seal::Ciphertext> rot;
+  rot.resize(bsgs_n1);
+  rot[0] = in_out;
+  for (uint64_t j = 1; j < bsgs_n1; j++)
+    evaluator.rotate_rows(rot[j - 1], 1, he_gk, rot[j]);
+
+  for (uint64_t k = 0; k < bsgs_n2; k++) {
+    evaluator.multiply_plain(rot[0], matrix[k * bsgs_n1], inner_sum);
+    for (uint64_t j = 1; j < bsgs_n1; j++) {
+      evaluator.multiply_plain(rot[j], matrix[k * bsgs_n1 + j], temp);
+      evaluator.add_inplace(inner_sum, temp);
+    }
+    if (!k)
+      outer_sum = inner_sum;
+    else {
+      evaluator.rotate_rows_inplace(inner_sum, k * bsgs_n1, he_gk);
+      evaluator.add_inplace(outer_sum, inner_sum);
+    }
+  }
+  in_out = outer_sum;
 }
+
+//----------------------------------------------------------------
+
+void SEALZpCipher::diagonal(seal::Ciphertext& in_out, const matrix& mat) {
+  const size_t matrix_dim = mat.size();
+  size_t nslots = batch_encoder.slot_count();
+
+  if (matrix_dim * 2 != nslots && matrix_dim * 4 > nslots)
+    throw std::runtime_error("too little slots for matmul implementation!");
+
+  // non-full-packed rotation preparation
+  if (nslots != matrix_dim * 2) {
+    seal::Ciphertext in_rot;
+    evaluator.rotate_rows(in_out, -((int)matrix_dim), he_gk, in_rot);
+    evaluator.add_inplace(in_out, in_rot);
+  }
+
+  // diagonal method preperation:
+  std::vector<seal::Plaintext> matrix;
+  matrix.reserve(matrix_dim);
+  for (auto i = 0ULL; i < matrix_dim; i++) {
+    std::vector<uint64_t> diag;
+    diag.reserve(matrix_dim);
+    for (auto j = 0ULL; j < matrix_dim; j++) {
+      diag.push_back(mat[j][(i + j) % matrix_dim]);
+    }
+    seal::Plaintext row;
+    batch_encoder.encode(diag, row);
+    matrix.push_back(row);
+  }
+
+  seal::Ciphertext sum = in_out;
+  evaluator.multiply_plain_inplace(sum, matrix[0]);
+  for (auto i = 1ULL; i < matrix_dim; i++) {
+    seal::Ciphertext tmp;
+    evaluator.rotate_rows_inplace(in_out, 1, he_gk);
+    evaluator.multiply_plain(in_out, matrix[i], tmp);
+    evaluator.add_inplace(sum, tmp);
+  }
+  in_out = sum;
+}
+
+//----------------------------------------------------------------
+
+void SEALZpCipher::activate_bsgs(bool activate) { use_bsgs = activate; }
+
+//----------------------------------------------------------------
+
+void SEALZpCipher::set_bsgs_params(uint64_t n1, uint64_t n2) {
+  bsgs_n1 = n1;
+  bsgs_n2 = n2;
+}
+
+//----------------------------------------------------------------
+
+void SEALZpCipher::add_some_gk_indices(std::vector<int>& gk_ind) {
+  for (auto& it : gk_ind) gk_indices.push_back(it);
+}
+
+//----------------------------------------------------------------
+
+void SEALZpCipher::add_bsgs_indices(uint64_t n1, uint64_t n2) {
+  size_t mul = n1 * n2;
+  add_diagonal_indices(mul);
+  if (n1 == 1 || n2 == 1) return;
+
+  for (uint64_t k = 1; k < n2; k++) gk_indices.push_back(k * n1);
+}
+
+//----------------------------------------------------------------
+
+void SEALZpCipher::add_diagonal_indices(size_t size) {
+  if (size * 2 != batch_encoder.slot_count())
+    gk_indices.push_back(-((int)size));
+  gk_indices.push_back(1);
+}
+
+//----------------------------------------------------------------
+
+void SEALZpCipher::create_gk() { keygen.create_galois_keys(gk_indices, he_gk); }
+
+//----------------------------------------------------------------
+
+size_t SEALZpCipher::get_cipher_size(seal::Ciphertext& ct, bool mod_switch,
+                                     size_t levels_from_last) {
+  if (mod_switch) {
+    auto c = context->last_context_data();
+    for (uint64_t _ = 0; _ < levels_from_last; _++) {
+      c = c->prev_context_data();
+    }
+    evaluator.mod_switch_to_inplace(ct, c->parms_id());
+  }
+  std::stringstream s;
+  auto size = ct.save(s);
+  return size;
+}
+
+//----------------------------------------------------------------
+// non-packed:
+//----------------------------------------------------------------
+
+void SEALZpCipher::encrypt(seal::Ciphertext& out, uint64_t in,
+                           bool batch_encoder) {
+  seal::Plaintext p;
+  if (batch_encoder)
+    this->batch_encoder.encode(std::vector<uint64_t>(1, in), p);
+  else
+    p = in;
+
+  encryptor.encrypt(p, out);
+}
+
+//----------------------------------------------------------------
+
+void SEALZpCipher::decrypt(seal::Ciphertext& in, uint64_t& out,
+                           bool batch_encoder) {
+  seal::Plaintext p;
+  decryptor.decrypt(in, p);
+
+  if (batch_encoder) {
+    std::vector<uint64_t> tmp;
+    this->batch_encoder.decode(p, tmp);
+    out = tmp[0];
+  } else
+    out = p[0];
+}
+
+//----------------------------------------------------------------
 
 // vo = M * vi
-void SEALCipher::matMul(e_vector& vo, const matrix& M, const e_vector& vi) {
+void SEALZpCipher::matMul(std::vector<seal::Ciphertext>& vo, const matrix& M,
+                          const std::vector<seal::Ciphertext>& vi,
+                          bool batch_encoder) {
   size_t cols = vi.size();
   size_t rows = M.size();
   if (vo.size() != rows) vo.resize(rows);
 
+  seal::Plaintext p;
+
   for (size_t row = 0; row < rows; row++) {
-    std::cout << "row " << row << std::endl;
-    std::vector<e_int> tree(cols);
     for (size_t col = 0; col < cols; col++) {
-      multiplyPlain(tree[col], vi[col], M[row][col]);
+      if (batch_encoder)
+        this->batch_encoder.encode(std::vector<uint64_t>(1, M[row][col]), p);
+      else
+        p = M[row][col];
+      seal::Ciphertext tmp;
+      evaluator.multiply_plain(vi[col], p, tmp);
+      if (col == 0)
+        vo[row] = tmp;
+      else
+        evaluator.add_inplace(vo[row], tmp);
     }
-    treeAdd(tree);
-    vo[row] = tree[0];
   }
 }
 
+//----------------------------------------------------------------
+
 // vo = vi + b
-void SEALCipher::vecAdd(e_vector& vo, const e_vector& vi, const vector& b) {
+void SEALZpCipher::vecAdd(std::vector<seal::Ciphertext>& vo,
+                          const std::vector<seal::Ciphertext>& vi,
+                          const vector& b, bool batch_encoder) {
   size_t rows = vi.size();
   if (vo.size() != rows) vo.resize(rows);
 
-  size_t bitsize = vi[0].size();
+  seal::Plaintext p;
+
   for (size_t row = 0; row < rows; row++) {
-    if (bitsize == 16)
-      carryLookaheadAdderPlain(vo[row], vi[row], b[row]);
-    else if (bitsize == 64)
-      carryLookaheadAdderPlain(vo[row], vi[row], b[row], 3);
+    if (batch_encoder)
+      this->batch_encoder.encode(std::vector<uint64_t>(1, b[row]), p);
     else
-      rippleCarryAdderPlain(vo[row], vi[row], b[row]);
+      p = b[row];
+    evaluator.add_plain(vi[row], p, vo[row]);
   }
 }
 
+//----------------------------------------------------------------
+
 // vo = M * vi + b
-void SEALCipher::affine(e_vector& vo, const matrix& M, const e_vector& vi,
-                        const vector& b) {
-  matMul(vo, M, vi);
-  vecAdd(vo, vo, b);
+void SEALZpCipher::affine(std::vector<seal::Ciphertext>& vo, const matrix& M,
+                          const std::vector<seal::Ciphertext>& vi,
+                          const vector& b, bool batch_encoder) {
+  matMul(vo, M, vi, batch_encoder);
+  vecAdd(vo, vo, b, batch_encoder);
+}
+
+//----------------------------------------------------------------
+
+void SEALZpCipher::square(std::vector<seal::Ciphertext>& vo,
+                          const std::vector<seal::Ciphertext>& vi) {
+  size_t rows = vi.size();
+  if (vo.size() != rows) vo.resize(rows);
+
+  for (size_t row = 0; row < rows; row++) {
+    evaluator.square(vi[row], vo[row]);
+    evaluator.relinearize_inplace(vo[row], he_rk);
+  }
+}
+
+//----------------------------------------------------------------
+// packed:
+//----------------------------------------------------------------
+
+void SEALZpCipher::packed_encrypt(seal::Ciphertext& out,
+                                  std::vector<uint64_t> in) {
+  seal::Plaintext p;
+  batch_encoder.encode(in, p);
+  encryptor.encrypt(p, out);
+}
+
+//----------------------------------------------------------------
+
+void SEALZpCipher::packed_decrypt(seal::Ciphertext& in,
+                                  std::vector<uint64_t>& out, size_t size) {
+  seal::Plaintext p;
+  decryptor.decrypt(in, p);
+  batch_encoder.decode(p, out);
+  out.resize(size);
+}
+
+//----------------------------------------------------------------
+
+// vo = M * vi
+void SEALZpCipher::packed_matMul(seal::Ciphertext& vo, const matrix& M,
+                                 const seal::Ciphertext& vi) {
+  vo = vi;
+  if (use_bsgs && bsgs_n1 != 1 && bsgs_n2 != 1)
+    babystep_giantstep(vo, M);
+  else
+    diagonal(vo, M);
+}
+
+//----------------------------------------------------------------
+
+// vo = M * vi + b
+void SEALZpCipher::packed_affine(seal::Ciphertext& vo, const matrix& M,
+                                 const seal::Ciphertext& vi, const vector& b) {
+  packed_matMul(vo, M, vi);
+
+  seal::Plaintext p;
+  batch_encoder.encode(b, p);
+  evaluator.add_plain_inplace(vo, p);
+}
+
+//----------------------------------------------------------------
+
+void SEALZpCipher::packed_square(seal::Ciphertext& vo,
+                                 const seal::Ciphertext& vi) {
+  evaluator.square(vi, vo);
+  evaluator.relinearize_inplace(vo, he_rk);
 }

@@ -4,7 +4,7 @@ int main() {
   bool ret = true;
   int idx = 0;
   for (auto& test : KNOWN_ANSWER_TESTS) {
-    std::cout << "Test " << idx << "\n";
+    std::cout << "PASTA Test " << idx << "\n";
     try {
       bool ok = test.run_test();
       if (ok) std::cout << "... ok";
