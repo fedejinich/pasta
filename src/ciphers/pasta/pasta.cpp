@@ -1,4 +1,4 @@
-#include "pasta_3_plain.h"
+#include "pasta.h"
 
 #include <math.h>
 

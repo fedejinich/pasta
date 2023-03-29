@@ -1,4 +1,4 @@
-#include "../../src/ciphers/pasta/testvectors.h"
+#include "resources/pasta_testvectors.h"
 
 int main() {
   bool ret = true;
