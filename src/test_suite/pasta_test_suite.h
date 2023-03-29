@@ -7,15 +7,15 @@
 #include <vector>
 
 extern "C" {
-#include "perf.h"
+#include "pasta/util/perf.h"
 }
 
-#include "utils.h"
-#include "cipher.h"
-#include "matrix.h"
+#include "pasta/src/common/utils.h"
+#include "pasta/src/common/cipher.h"
+#include "pasta/src/common/matrix.h"
 
 template <class T>
-class KnownAnswerTestZp {
+class PASTATestSuite {
  public:
   enum Testcase { MAT, DEC, USE_CASE, PREP };
 
@@ -32,9 +32,9 @@ class KnownAnswerTestZp {
   size_t N;
 
  public:
-  KnownAnswerTestZp(std::vector<uint64_t> key, std::vector<uint64_t> plaintext,
-                    std::vector<uint64_t> ciphertext_expected, size_t modulus,
-                    Testcase tc = DEC, size_t N = 4)
+  PASTATestSuite(std::vector<uint64_t> key, std::vector<uint64_t> plaintext,
+                 std::vector<uint64_t> ciphertext_expected, size_t modulus,
+                 Testcase tc = DEC, size_t N = 4)
       : rand(PRESET_SEED),
         key(key),
         plaintext(plaintext),
@@ -43,10 +43,10 @@ class KnownAnswerTestZp {
         tc(tc),
         N(N) {}
 
-  KnownAnswerTestZp(const uint64_t* key, size_t key_size,
-                    const uint64_t* plaintext, size_t plaintext_size,
-                    const uint64_t* ciphertext_expected, size_t ciphertext_size,
-                    size_t modulus, Testcase tc = DEC, size_t N = 4)
+  PASTATestSuite(const uint64_t* key, size_t key_size,
+                 const uint64_t* plaintext, size_t plaintext_size,
+                 const uint64_t* ciphertext_expected, size_t ciphertext_size,
+                 size_t modulus, Testcase tc = DEC, size_t N = 4)
       : rand(PRESET_SEED),
         key(key, key + key_size),
         plaintext(plaintext, plaintext + plaintext_size),

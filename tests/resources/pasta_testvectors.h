@@ -1,12 +1,12 @@
 #pragma once
 
-#include "pasta/src/common/pasta_test_suite.h"
+#include "pasta/src/test_suite/pasta_test_suite.h"
 #include "pasta/src/ciphers/pasta/pasta.h"
 
 using namespace PASTA_3;
 
 // build an array of KnownAnswerTests for PASTA
-KnownAnswerTestZp<PASTA> KNOWN_ANSWER_TESTS[] = {
+PASTATestSuite<PASTA> KNOWN_ANSWER_TESTS[] = {
     {
         {0x07a30, 0x0cfe2, 0x03bbb, 0x06ab7, 0x0de0b, 0x0c36c, 0x01c39,
          0x019e0, 0x0e09c, 0x04441, 0x0c560, 0x00fd4, 0x0c611, 0x0a3fd,
@@ -84,7 +84,7 @@ KnownAnswerTestZp<PASTA> KNOWN_ANSWER_TESTS[] = {
          0x0f2fb, 0x0a3ed, 0x03868, 0x09ea1, 0x0c657, 0x0b8e3, 0x05663,
          0x07a04, 0x02e7b},
         65537,
-        KnownAnswerTestZp<PASTA>::Testcase::DEC,
+            PASTATestSuite<PASTA>::Testcase::DEC,
     },
     {
         {0x02d65ac52, 0x1c6b45d1c, 0x1cb39041d, 0x0a114487b, 0x1bd58169e,
@@ -192,7 +192,7 @@ KnownAnswerTestZp<PASTA> KNOWN_ANSWER_TESTS[] = {
          0x05bd57ced, 0x1694e381d, 0x04e5da0c6, 0x0681d0549, 0x03037bb4d,
          0x00e62d01a, 0x14fb2137e, 0x0a9c2c126},
         8088322049ULL,
-        KnownAnswerTestZp<PASTA>::Testcase::DEC,
+            PASTATestSuite<PASTA>::Testcase::DEC,
     },
     {
         {0x892f9ff42160c81, 0xa652a61d10eabf3, 0x76bb71c0ddc0c06,
@@ -368,7 +368,7 @@ KnownAnswerTestZp<PASTA> KNOWN_ANSWER_TESTS[] = {
          0x93a094470657f49, 0xa9ca9d8f6ac5f16, 0x2f70c474061158d,
          0x4070a4bf3a6f7e8, 0xb96c6f87591abae},
         1096486890805657601ULL,
-        KnownAnswerTestZp<PASTA>::Testcase::DEC,
+            PASTATestSuite<PASTA>::Testcase::DEC,
     },
     {
         {0x07a30, 0x0cfe2, 0x03bbb, 0x06ab7, 0x0de0b, 0x0c36c, 0x01c39,
@@ -411,7 +411,7 @@ KnownAnswerTestZp<PASTA> KNOWN_ANSWER_TESTS[] = {
         {0x00},
         {0x00},
         65537,
-        KnownAnswerTestZp<PASTA>::Testcase::USE_CASE,
+            PASTATestSuite<PASTA>::Testcase::USE_CASE,
         200,
     },
     {
@@ -470,7 +470,7 @@ KnownAnswerTestZp<PASTA> KNOWN_ANSWER_TESTS[] = {
         {0x00},
         {0x00},
         8088322049ULL,
-        KnownAnswerTestZp<PASTA>::Testcase::USE_CASE,
+            PASTATestSuite<PASTA>::Testcase::USE_CASE,
         200,
     },
     {
@@ -563,7 +563,7 @@ KnownAnswerTestZp<PASTA> KNOWN_ANSWER_TESTS[] = {
         {0x00},
         {0x00},
         1096486890805657601ULL,
-        KnownAnswerTestZp<PASTA>::Testcase::USE_CASE,
+            PASTATestSuite<PASTA>::Testcase::USE_CASE,
         200,
     },
     {
@@ -607,7 +607,7 @@ KnownAnswerTestZp<PASTA> KNOWN_ANSWER_TESTS[] = {
         {0x00},
         {0x00},
         65537,
-        KnownAnswerTestZp<PASTA>::Testcase::PREP,
+            PASTATestSuite<PASTA>::Testcase::PREP,
     },
     {
         {0x02d65ac52, 0x1c6b45d1c, 0x1cb39041d, 0x0a114487b, 0x1bd58169e,
@@ -665,7 +665,7 @@ KnownAnswerTestZp<PASTA> KNOWN_ANSWER_TESTS[] = {
         {0x00},
         {0x00},
         8088322049ULL,
-        KnownAnswerTestZp<PASTA>::Testcase::PREP,
+            PASTATestSuite<PASTA>::Testcase::PREP,
     },
     {
         {0x892f9ff42160c81, 0xa652a61d10eabf3, 0x76bb71c0ddc0c06,
@@ -757,6 +757,6 @@ KnownAnswerTestZp<PASTA> KNOWN_ANSWER_TESTS[] = {
         {0x00},
         {0x00},
         1096486890805657601ULL,
-        KnownAnswerTestZp<PASTA>::Testcase::PREP,
+            PASTATestSuite<PASTA>::Testcase::PREP,
     },
 };

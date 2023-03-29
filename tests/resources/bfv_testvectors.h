@@ -1,12 +1,12 @@
 #pragma once
 
-#include "pasta/src/common/bfv_test_suite.h"
+#include "pasta/src/test_suite/bfv_test_suite.h"
 #include "pasta/src/ciphers/bfv/bfv_seal.h"
 
 using namespace PASTA_3;
 
 // build an array of KnownAnswerTests for PASTA
-SEALKnownAnswerTestZp<PASTA_SEAL> KNOWN_ANSWER_TESTS[] = {
+BFVTestSuite<PASTA_SEAL> KNOWN_ANSWER_TESTS[] = {
 {
         {
             0x07a30, 0x0cfe2, 0x03bbb, 0x06ab7, 0x0de0b, 0x0c36c, 0x01c39, 0x019e0,
@@ -47,7 +47,7 @@ SEALKnownAnswerTestZp<PASTA_SEAL> KNOWN_ANSWER_TESTS[] = {
         65537, // plain_mod
         32768, // mod_degree
         128, // seclevel
-        SEALKnownAnswerTestZp<PASTA_SEAL>::Testcase::HHE, // tc
+        BFVTestSuite<PASTA_SEAL>::Testcase::HHE, // tc
         200, // N
         true, // use_bsgs
         20, // bsgs_n1

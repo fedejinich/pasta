@@ -1,11 +1,11 @@
 #pragma once
 
-#include "utils.h"
-#include "matrix.h"
+#include "pasta/src/common/utils.h"
+#include "pasta/src/common/matrix.h"
 #include "seal/seal.h"
 
 template <class T>
-class SEALKnownAnswerTestZp {
+class BFVTestSuite {
  public:
   enum Testcase { MAT, DEC, USE_CASE, PACKED_MAT, PACKED_USE_CASE, HHE };
 
@@ -31,12 +31,12 @@ class SEALKnownAnswerTestZp {
   static const bool USE_BATCH = true;
 
  public:
-  SEALKnownAnswerTestZp(std::vector<uint64_t> key,
-                        std::vector<uint64_t> plaintext,
-                        std::vector<uint64_t> ciphertext_expected,
-                        uint64_t plain_mod, uint64_t mod_degree, int seclevel,
-                        Testcase tc = DEC, size_t N = 4, bool use_bsgs = false,
-                        uint64_t bsgs_n1 = 0, uint64_t bsgs_n2 = 0)
+  BFVTestSuite(std::vector<uint64_t> key,
+               std::vector<uint64_t> plaintext,
+               std::vector<uint64_t> ciphertext_expected,
+               uint64_t plain_mod, uint64_t mod_degree, int seclevel,
+               Testcase tc = DEC, size_t N = 4, bool use_bsgs = false,
+               uint64_t bsgs_n1 = 0, uint64_t bsgs_n2 = 0)
       : rand(PRESET_SEED),
         key(key),
         plaintext(plaintext),
@@ -50,13 +50,13 @@ class SEALKnownAnswerTestZp {
         bsgs_n1(bsgs_n1),
         bsgs_n2(bsgs_n2) {}
 
-  SEALKnownAnswerTestZp(const uint64_t* key, size_t key_size,
-                        const uint64_t* plaintext, size_t plaintext_size,
-                        const uint64_t* ciphertext_expected,
-                        size_t ciphertext_size, uint64_t plain_mod,
-                        uint64_t mod_degree, int seclevel, Testcase tc = DEC,
-                        size_t N = 4, bool use_bsgs = false,
-                        uint64_t bsgs_n1 = 0, uint64_t bsgs_n2 = 0)
+  BFVTestSuite(const uint64_t* key, size_t key_size,
+               const uint64_t* plaintext, size_t plaintext_size,
+               const uint64_t* ciphertext_expected,
+               size_t ciphertext_size, uint64_t plain_mod,
+               uint64_t mod_degree, int seclevel, Testcase tc = DEC,
+               size_t N = 4, bool use_bsgs = false,
+               uint64_t bsgs_n1 = 0, uint64_t bsgs_n2 = 0)
       : rand(PRESET_SEED),
         key(key, key + key_size),
         plaintext(plaintext, plaintext + plaintext_size),
